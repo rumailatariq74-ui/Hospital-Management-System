@@ -1,24 +1,42 @@
+import { useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 
-import Dashboard from "./pages/Dashboard";
-import Patients from "./pages/Patients";
-import Doctors from "./pages/Doctor";
-import Appointments from "./pages/Appointments";
-import Billing from "./pages/Billing";
+import Dashboard from "./pages/dashboard/Dashboard";
+import Patients from "./pages/patients/Patients";
+import Doctors from "./pages/doctor/Doctor";
+import Appointments from "./pages/appoitments/Appointments";
+import Billing from "./pages/billing/Billing";
 import { FaWhatsapp } from "react-icons/fa";
 
-
-import "./app.css";
-
 function App() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    return typeof window === "undefined" ? true : window.innerWidth > 960;
+  });
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen((current) => !current);
+  };
+
+  const closeSidebar = () => {
+    if (window.innerWidth <= 960) {
+      setIsSidebarOpen(false);
+    }
+  };
+
   return (
     <>
-      <Navbar />
+      <Navbar isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />
 
-      <div className="container">
-        <Sidebar />
+      <div className={`app-layout ${isSidebarOpen ? "" : "sidebar-collapsed"}`}>
+        <Sidebar isOpen={isSidebarOpen} onNavigate={closeSidebar} />
+        <button
+          className={`sidebar-backdrop ${isSidebarOpen ? "is-visible" : ""}`}
+          type="button"
+          aria-label="Close sidebar"
+          onClick={closeSidebar}
+        />
 
         <main className="content">
           <Routes>

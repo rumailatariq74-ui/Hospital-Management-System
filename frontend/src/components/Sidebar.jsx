@@ -1,76 +1,65 @@
 import { NavLink } from "react-router-dom";
+import {
+  CalendarDays,
+  Hospital,
+  LayoutDashboard,
+  ReceiptText,
+  Stethoscope,
+  Users,
+} from "lucide-react";
 
+const navItems = [
+  {
+    to: "/",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    to: "/patients",
+    label: "Patients",
+    icon: Users,
+  },
+  {
+    to: "/doctors",
+    label: "Doctors",
+    icon: Stethoscope,
+  },
+  {
+    to: "/appointments",
+    label: "Appointments",
+    icon: CalendarDays,
+  },
+  {
+    to: "/billing",
+    label: "Billing",
+    icon: ReceiptText,
+  },
+];
 
-function Sidebar() {
-
+function Sidebar({ isOpen, onNavigate }) {
   return (
-
-    <aside className="sidebar">
-
-
+    <aside className={`sidebar ${isOpen ? "is-open" : ""}`}>
       <div className="logo">
-
-        🏥 MediCare
-
+        <Hospital size={28} />
+        <span>MediCare</span>
       </div>
 
-
-
       <ul>
+        {navItems.map((item) => {
+          const Icon = item.icon;
 
-
-        <li>
-
-          <NavLink to="/">
-            📊 Dashboard
-          </NavLink>
-
-        </li>
-
-
-
-        <li>
-
-          <NavLink to="/patients">
-            🧑‍⚕️ Patients
-          </NavLink>
-
-        </li>
-
-
-
-        <li>
-
-          <NavLink to="/doctors">
-            👨‍⚕️ Doctors
-          </NavLink>
-
-        </li>
-
-
-
-        <li>
-
-          <NavLink to="/appointments">
-            📅 Appointments
-          </NavLink>
-
-        </li>
-<li>
-  <NavLink to="/billing">
-    💰 Billing
-  </NavLink>
-</li>
-
-
+          return (
+            <li key={item.to}>
+              <NavLink to={item.to} onClick={onNavigate} title={item.label}>
+                <Icon size={20} />
+                <span>{item.label}</span>
+              </NavLink>
+            </li>
+          );
+        })}
       </ul>
-
-
     </aside>
-
   );
-
 }
-
 
 export default Sidebar;
