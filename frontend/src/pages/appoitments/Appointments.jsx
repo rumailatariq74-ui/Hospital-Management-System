@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, LayoutList, CalendarDays } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import CalendarView from "../../components/CalendarView";
 
 const initialAppointment = {
   patient: "",
@@ -17,6 +18,7 @@ function Appointments() {
   const [editIndex, setEditIndex] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState("list"); // "list" | "calendar"
 
   useEffect(() => {
     const savedAppointments = JSON.parse(localStorage.getItem("appointments"));
@@ -101,7 +103,13 @@ function Appointments() {
     {
       key: "status",
       header: "Status",
-      render: ({ item }) => <span className="status">{item.status}</span>,
+      render: ({ item }) => {
+        const statusClass =
+          item.status === "Completed" ? "status-completed" :
+          item.status === "Confirmed" ? "status-confirmed" :
+          "status-pending";
+        return <span className={`status ${statusClass}`}>{item.status}</span>;
+      },
     },
     {
       key: "actions",
@@ -140,13 +148,22 @@ function Appointments() {
           <h4>Total Appointments: {appointments.length}</h4>
         </div>
 
-        <button className="btn btn-primary add-record-btn" type="button" onClick={openAddModal}>
-          <Plus size={18} />
-          Add Appointment
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button className={`btn ${viewMode === 'list' ? 'btn-primary' : ''}`} type="button" onClick={() => setViewMode('list')} style={viewMode !== 'list' ? { background: 'var(--color-bg)', color: 'var(--color-text)', border: '1.5px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' } : {}}>
+            <LayoutList size={16} /> List
+          </button>
+          <button className={`btn ${viewMode === 'calendar' ? 'btn-primary' : ''}`} type="button" onClick={() => setViewMode('calendar')} style={viewMode !== 'calendar' ? { background: 'var(--color-bg)', color: 'var(--color-text)', border: '1.5px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' } : {}}>
+            <CalendarDays size={16} /> Calendar
+          </button>
+          <button className="btn btn-primary add-record-btn" type="button" onClick={openAddModal}>
+            <Plus size={18} /> Add Appointment
+          </button>
+        </div>
       </div>
 
-      <DataTable
+      {viewMode === 'calendar' && <CalendarView appointments={appointments} />}
+
+      {viewMode === 'list' && <DataTable
         title="Appointment List"
         search={search}
         searchPlaceholder="Search appointments..."
@@ -155,7 +172,7 @@ function Appointments() {
         data={filteredAppointments}
         getRowKey={(row) => row.originalIndex}
         emptyMessage="No appointments found"
-      />
+      />}
 
       <Modal
         isOpen={isModalOpen}

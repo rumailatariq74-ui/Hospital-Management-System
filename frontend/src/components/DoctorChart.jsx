@@ -40,17 +40,23 @@ function DoctorChart() {
 
         <BarChart data={data}>
 
-          <CartesianGrid />
-
-          <XAxis dataKey="department" />
-
-          <YAxis />
+          <CartesianGrid strokeDasharray="3 3" stroke="#e0eeef" />
+          <XAxis dataKey="department" tick={{ fill: '#5a7a7b', fontSize: 12 }} axisLine={{ stroke: '#e0eeef' }} tickLine={false} />
+          <YAxis tick={{ fill: '#5a7a7b', fontSize: 12 }} axisLine={{ stroke: '#e0eeef' }} tickLine={false} />
 
           <Tooltip />
 
-          <Bar 
+          <Bar
             dataKey="doctors"
+            fill="url(#barGradient)"
+            radius={[8, 8, 0, 0]}
           />
+          <defs>
+            <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#147570" />
+              <stop offset="100%" stopColor="#8FB59A" />
+            </linearGradient>
+          </defs>
 
         </BarChart>
 

@@ -31,11 +31,18 @@ function DepartmentChart() {
             dataKey="value"
             nameKey="name"
             outerRadius={100}
+            innerRadius={60}
             label
+            labelLine={{ stroke: '#5a7a7b', strokeWidth: 1 }}
           >
             {
               data.map((entry, index) => (
-                <Cell key={index} />
+                <Cell
+                  key={index}
+                  fill={["#147570", "#8FB59A", "#103D3E", "#1a918b"][index % 4]}
+                  stroke="var(--color-white)"
+                  strokeWidth={2}
+                />
               ))
             }
 
