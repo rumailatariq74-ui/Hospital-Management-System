@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialDoctor = {
   name: "",
@@ -13,21 +14,26 @@ const initialDoctor = {
 function Doctor() {
   const [doctor, setDoctor] = useState(initialDoctor);
   const [doctors, setDoctors] = useState([]);
-  const [editIndex, setEditIndex] = useState(null);
+  const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const savedDoctors = JSON.parse(localStorage.getItem("doctors"));
-
-    if (savedDoctors) {
-      setDoctors(savedDoctors);
-    }
+    fetchDoctors();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("doctors", JSON.stringify(doctors));
-  }, [doctors]);
+  const fetchDoctors = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/doctors");
+      setDoctors(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load doctors");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (event) => {
     setDoctor({
@@ -38,76 +44,84 @@ function Doctor() {
 
   const openAddModal = () => {
     setDoctor(initialDoctor);
-    setEditIndex(null);
+    setEditId(null);
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setDoctor(initialDoctor);
-    setEditIndex(null);
+    setEditId(null);
     setIsModalOpen(false);
   };
 
-  const saveDoctor = (event) => {
+  const saveDoctor = async (event) => {
     event.preventDefault();
 
-    if (editIndex !== null) {
-      const updatedDoctors = [...doctors];
-      updatedDoctors[editIndex] = doctor;
-      setDoctors(updatedDoctors);
-    } else {
-      setDoctors([...doctors, doctor]);
+    try {
+      if (editId) {
+        await apiPut(`/doctors/${editId}`, doctor);
+      } else {
+        await apiPost("/doctors", doctor);
+      }
+      await fetchDoctors();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save doctor");
     }
-
-    closeModal();
   };
 
-  const editDoctor = (index) => {
-    setDoctor(doctors[index]);
-    setEditIndex(index);
+  const editDoctor = (id) => {
+    const selected = doctors.find((item) => item._id === id);
+    setDoctor(selected);
+    setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteDoctor = (index) => {
-    setDoctors(doctors.filter((_, itemIndex) => itemIndex !== index));
+  const deleteDoctor = async (id) => {
+    try {
+      await apiDelete(`/doctors/${id}`);
+      await fetchDoctors();
+    } catch (err) {
+      alert(err.message || "Failed to delete doctor");
+    }
   };
 
-  const filteredDoctors = doctors
-    .map((item, index) => ({ item, originalIndex: index }))
-    .filter(({ item }) => item.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredDoctors = doctors.filter((item) =>
+    item.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   const columns = [
     {
       key: "name",
       header: "Name",
-      render: ({ item }) => <strong className="record-name">{item.name || "-"}</strong>,
+      render: (item) => <strong className="record-name">{item.name || "-"}</strong>,
     },
     {
       key: "specialization",
       header: "Specialization",
-      render: ({ item }) => <span className="soft-pill">{item.specialization || "General"}</span>,
+      render: (item) => <span className="soft-pill">{item.specialization || "General"}</span>,
     },
     {
       key: "phone",
       header: "Phone",
-      render: ({ item }) => item.phone || "-",
+      render: (item) => item.phone || "-",
     },
     {
       key: "experience",
       header: "Experience",
-      render: ({ item }) => item.experience || "-",
+      render: (item) => item.experience || "-",
     },
     {
       key: "actions",
       header: "Action",
-      render: ({ item, originalIndex }) => (
+      render: (item) => (
         <div className="action-buttons">
           <button
             className="icon-action-btn edit-action"
             type="button"
             aria-label={`Edit ${item.name || "doctor"}`}
             title="Edit"
-            onClick={() => editDoctor(originalIndex)}
+            onClick={() => editDoctor(item._id)}
           >
             <Pencil size={16} />
           </button>
@@ -117,7 +131,7 @@ function Doctor() {
             type="button"
             aria-label={`Delete ${item.name || "doctor"}`}
             title="Delete"
-            onClick={() => deleteDoctor(originalIndex)}
+            onClick={() => deleteDoctor(item._id)}
           >
             <Trash2 size={16} />
           </button>
@@ -147,13 +161,13 @@ function Doctor() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredDoctors}
-        getRowKey={(row) => row.originalIndex}
+        getRowKey={(row) => row._id}
         emptyMessage="No doctors found"
       />
 
       <Modal
         isOpen={isModalOpen}
-        title={editIndex !== null ? "Update Doctor" : "Add Doctor"}
+        title={editId ? "Update Doctor" : "Add Doctor"}
         onClose={closeModal}
       >
         <form className="modal-form" onSubmit={saveDoctor}>
@@ -163,10 +177,12 @@ function Doctor() {
           <input className="form-control" name="experience" placeholder="Experience" value={doctor.experience} onChange={handleChange} />
 
           <button className="btn btn-primary modal-submit-btn" type="submit">
-            {editIndex !== null ? "Update Doctor" : "Add Doctor"}
+            {editId ? "Update Doctor" : "Add Doctor"}
           </button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

@@ -1,17 +1,45 @@
+import { useState, useEffect } from "react";
 import { ArrowUpRight, ArrowDownRight, Activity, Calendar, DollarSign, Users, Stethoscope, FlaskConical, BedDouble, Pill } from "lucide-react";
+import { apiGet } from "../../services/api";
 import DepartmentChart from "../../components/DepartmentChart";
 import PatientChart from "../../components/PatientChart";
 import DoctorChart from "../../components/DoctorChart";
 import DataTable from "../../components/DataTable";
 
 function Dashboard() {
-  const patients = JSON.parse(localStorage.getItem("patients")) || [];
-  const doctors = JSON.parse(localStorage.getItem("doctors")) || [];
-  const appointments = JSON.parse(localStorage.getItem("appointments")) || [];
-  const bills = JSON.parse(localStorage.getItem("bills")) || [];
-  const medicines = JSON.parse(localStorage.getItem("medicines")) || [];
-  const rooms = JSON.parse(localStorage.getItem("rooms")) || [];
-  const labTests = JSON.parse(localStorage.getItem("labTests")) || [];
+  const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [bills, setBills] = useState([]);
+  const [medicines, setMedicines] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [labTests, setLabTests] = useState([]);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [patientsData, doctorsData, appointmentsData, billsData, medicinesData, roomsData, labTestsData] = await Promise.all([
+          apiGet("/patients"),
+          apiGet("/doctors"),
+          apiGet("/appointments"),
+          apiGet("/bills"),
+          apiGet("/medicines"),
+          apiGet("/rooms"),
+          apiGet("/lab-tests"),
+        ]);
+        setPatients(patientsData || []);
+        setDoctors(doctorsData || []);
+        setAppointments(appointmentsData || []);
+        setBills(billsData || []);
+        setMedicines(medicinesData || []);
+        setRooms(roomsData || []);
+        setLabTests(labTestsData || []);
+      } catch (error) {
+        console.error("Failed to load dashboard data:", error);
+      }
+    }
+    fetchData();
+  }, []);
 
   const totalRevenue = bills.reduce((total, bill) => total + Number(bill.amount || 0), 0);
   const pendingAppointments = appointments.filter((a) => a.status === "Pending").length;
@@ -153,9 +181,9 @@ function Dashboard() {
 
       {/* Charts */}
       <div className="charts">
-        <PatientChart />
-        <DoctorChart />
-        <DepartmentChart />
+        <PatientChart patients={patients} />
+        <DoctorChart doctors={doctors} />
+        <DepartmentChart doctors={doctors} />
       </div>
     </div>
   );

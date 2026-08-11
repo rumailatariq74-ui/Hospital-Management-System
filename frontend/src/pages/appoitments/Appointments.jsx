@@ -3,6 +3,7 @@ import { Pencil, Plus, Trash2, LayoutList, CalendarDays } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import CalendarView from "../../components/CalendarView";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialAppointment = {
   patient: "",
@@ -15,22 +16,27 @@ const initialAppointment = {
 function Appointments() {
   const [appointment, setAppointment] = useState(initialAppointment);
   const [appointments, setAppointments] = useState([]);
-  const [editIndex, setEditIndex] = useState(null);
+  const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState("list"); // "list" | "calendar"
+  const [viewMode, setViewMode] = useState("list");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const savedAppointments = JSON.parse(localStorage.getItem("appointments"));
-
-    if (savedAppointments) {
-      setAppointments(savedAppointments);
-    }
+    fetchAppointments();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("appointments", JSON.stringify(appointments));
-  }, [appointments]);
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/appointments");
+      setAppointments(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load appointments");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (event) => {
     setAppointment({
@@ -41,69 +47,77 @@ function Appointments() {
 
   const openAddModal = () => {
     setAppointment(initialAppointment);
-    setEditIndex(null);
+    setEditId(null);
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setAppointment(initialAppointment);
-    setEditIndex(null);
+    setEditId(null);
     setIsModalOpen(false);
   };
 
-  const saveAppointment = (event) => {
+  const saveAppointment = async (event) => {
     event.preventDefault();
 
-    if (editIndex !== null) {
-      const updatedAppointments = [...appointments];
-      updatedAppointments[editIndex] = appointment;
-      setAppointments(updatedAppointments);
-    } else {
-      setAppointments([...appointments, appointment]);
+    try {
+      if (editId) {
+        await apiPut(`/appointments/${editId}`, appointment);
+      } else {
+        await apiPost("/appointments", appointment);
+      }
+      await fetchAppointments();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save appointment");
     }
-
-    closeModal();
   };
 
-  const editAppointment = (index) => {
-    setAppointment(appointments[index]);
-    setEditIndex(index);
+  const editAppointment = (id) => {
+    const selected = appointments.find((item) => item._id === id);
+    setAppointment(selected);
+    setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteAppointment = (index) => {
-    setAppointments(appointments.filter((_, itemIndex) => itemIndex !== index));
+  const deleteAppointment = async (id) => {
+    try {
+      await apiDelete(`/appointments/${id}`);
+      await fetchAppointments();
+    } catch (err) {
+      alert(err.message || "Failed to delete appointment");
+    }
   };
 
-  const filteredAppointments = appointments
-    .map((item, index) => ({ item, originalIndex: index }))
-    .filter(({ item }) => item.patient.toLowerCase().includes(search.toLowerCase()));
+  const filteredAppointments = appointments.filter((item) =>
+    item.patient.toLowerCase().includes(search.toLowerCase())
+  );
 
   const columns = [
     {
       key: "patient",
       header: "Patient",
-      render: ({ item }) => <strong className="record-name">{item.patient || "-"}</strong>,
+      render: (item) => <strong className="record-name">{item.patient || "-"}</strong>,
     },
     {
       key: "doctor",
       header: "Doctor",
-      render: ({ item }) => item.doctor || "-",
+      render: (item) => item.doctor || "-",
     },
     {
       key: "date",
       header: "Date",
-      render: ({ item }) => item.date || "-",
+      render: (item) => item.date || "-",
     },
     {
       key: "time",
       header: "Time",
-      render: ({ item }) => item.time || "-",
+      render: (item) => item.time || "-",
     },
     {
       key: "status",
       header: "Status",
-      render: ({ item }) => {
+      render: (item) => {
         const statusClass =
           item.status === "Completed" ? "status-completed" :
           item.status === "Confirmed" ? "status-confirmed" :
@@ -114,14 +128,14 @@ function Appointments() {
     {
       key: "actions",
       header: "Action",
-      render: ({ item, originalIndex }) => (
+      render: (item) => (
         <div className="action-buttons">
           <button
             className="icon-action-btn edit-action"
             type="button"
             aria-label={`Edit ${item.patient || "appointment"}`}
             title="Edit"
-            onClick={() => editAppointment(originalIndex)}
+            onClick={() => editAppointment(item._id)}
           >
             <Pencil size={16} />
           </button>
@@ -131,7 +145,7 @@ function Appointments() {
             type="button"
             aria-label={`Delete ${item.patient || "appointment"}`}
             title="Delete"
-            onClick={() => deleteAppointment(originalIndex)}
+            onClick={() => deleteAppointment(item._id)}
           >
             <Trash2 size={16} />
           </button>
@@ -170,13 +184,13 @@ function Appointments() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredAppointments}
-        getRowKey={(row) => row.originalIndex}
+        getRowKey={(row) => row._id}
         emptyMessage="No appointments found"
       />}
 
       <Modal
         isOpen={isModalOpen}
-        title={editIndex !== null ? "Update Appointment" : "Add Appointment"}
+        title={editId ? "Update Appointment" : "Add Appointment"}
         onClose={closeModal}
       >
         <form className="modal-form" onSubmit={saveAppointment}>
@@ -191,10 +205,12 @@ function Appointments() {
           </select>
 
           <button className="btn btn-primary modal-submit-btn" type="submit">
-            {editIndex !== null ? "Update Appointment" : "Add Appointment"}
+            {editId ? "Update Appointment" : "Add Appointment"}
           </button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

@@ -1,7 +1,7 @@
-import { Bell, Hospital, Menu, Settings, X } from "lucide-react";
+import { Bell, Hospital, LogOut, Menu, Settings, X } from "lucide-react";
 import adminImage from "../assets/admin.jpg";
 
-function Navbar({ isSidebarOpen, onToggleSidebar }) {
+function Navbar({ isSidebarOpen, onToggleSidebar, onLogout }) {
   return (
     <nav className="top-navbar">
       <div className="brand-section">
@@ -35,6 +35,10 @@ function Navbar({ isSidebarOpen, onToggleSidebar }) {
 
         <button className="setting-btn" type="button" aria-label="Settings">
           <Settings size={19} />
+        </button>
+
+        <button className="notify-btn" type="button" aria-label="Logout" onClick={onLogout}>
+          <LogOut size={19} />
         </button>
 
         <div className="admin-profile">

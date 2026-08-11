@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2, AlertTriangle, HeartPulse } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialCase = {
   patient: "",
@@ -19,15 +20,23 @@ function Emergency() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("emergencyCases"));
-    if (data) setCases(data);
+    fetchCases();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("emergencyCases", JSON.stringify(cases));
-  }, [cases]);
+  const fetchCases = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/emergency");
+      setCases(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load emergency cases");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => setCaseItem({ ...caseItem, [e.target.name]: e.target.value });
 
@@ -43,28 +52,40 @@ function Emergency() {
     setIsModalOpen(false);
   };
 
-  const saveCase = (e) => {
+  const saveCase = async (e) => {
     e.preventDefault();
     if (!caseItem.patient || !caseItem.condition) {
       alert("Patient and condition are required");
       return;
     }
-    if (editId) {
-      setCases(cases.map((item) => (item.id === editId ? { ...caseItem, id: editId } : item)));
-    } else {
-      setCases([...cases, { ...caseItem, id: Date.now() }]);
+    try {
+      if (editId) {
+        await apiPut(`/emergency/${editId}`, caseItem);
+      } else {
+        await apiPost("/emergency", caseItem);
+      }
+      await fetchCases();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save emergency case");
     }
-    closeModal();
   };
 
   const editCase = (id) => {
-    const selected = cases.find((item) => item.id === id);
+    const selected = cases.find((item) => item._id === id);
     setCaseItem(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteCase = (id) => setCases(cases.filter((item) => item.id !== id));
+  const deleteCase = async (id) => {
+    try {
+      await apiDelete(`/emergency/${id}`);
+      await fetchCases();
+    } catch (err) {
+      alert(err.message || "Failed to delete emergency case");
+    }
+  };
 
   const filteredCases = cases.filter((item) =>
     item.patient.toLowerCase().includes(search.toLowerCase()) ||
@@ -104,8 +125,8 @@ function Emergency() {
       key: "actions", header: "Action",
       render: (item) => (
         <div className="action-buttons">
-          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editCase(item.id)}><Pencil size={16} /></button>
-          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteCase(item.id)}><Trash2 size={16} /></button>
+          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editCase(item._id)}><Pencil size={16} /></button>
+          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteCase(item._id)}><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -139,7 +160,7 @@ function Emergency() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredCases}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No emergency cases"
       />
 
@@ -166,6 +187,8 @@ function Emergency() {
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Case" : "Add Case"}</button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

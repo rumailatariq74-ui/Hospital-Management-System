@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialPatient = {
   name: "",
@@ -14,21 +15,26 @@ const initialPatient = {
 function Patients() {
   const [patient, setPatient] = useState(initialPatient);
   const [patients, setPatients] = useState([]);
-  const [editIndex, setEditIndex] = useState(null);
+  const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem("patients"));
-
-    if (saved) {
-      setPatients(saved);
-    }
+    fetchPatients();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("patients", JSON.stringify(patients));
-  }, [patients]);
+  const fetchPatients = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/patients");
+      setPatients(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load patients");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (event) => {
     setPatient({
@@ -39,81 +45,89 @@ function Patients() {
 
   const openAddModal = () => {
     setPatient(initialPatient);
-    setEditIndex(null);
+    setEditId(null);
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setPatient(initialPatient);
-    setEditIndex(null);
+    setEditId(null);
     setIsModalOpen(false);
   };
 
-  const savePatient = (event) => {
+  const savePatient = async (event) => {
     event.preventDefault();
 
-    if (editIndex !== null) {
-      const updated = [...patients];
-      updated[editIndex] = patient;
-      setPatients(updated);
-    } else {
-      setPatients([...patients, patient]);
+    try {
+      if (editId) {
+        await apiPut(`/patients/${editId}`, patient);
+      } else {
+        await apiPost("/patients", patient);
+      }
+      await fetchPatients();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save patient");
     }
-
-    closeModal();
   };
 
-  const editPatient = (index) => {
-    setPatient(patients[index]);
-    setEditIndex(index);
+  const editPatient = (id) => {
+    const selected = patients.find((item) => item._id === id);
+    setPatient(selected);
+    setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deletePatient = (index) => {
-    setPatients(patients.filter((_, itemIndex) => itemIndex !== index));
+  const deletePatient = async (id) => {
+    try {
+      await apiDelete(`/patients/${id}`);
+      await fetchPatients();
+    } catch (err) {
+      alert(err.message || "Failed to delete patient");
+    }
   };
 
-  const filteredPatients = patients
-    .map((item, index) => ({ item, originalIndex: index }))
-    .filter(({ item }) => item.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredPatients = patients.filter((item) =>
+    item.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   const columns = [
     {
       key: "name",
       header: "Name",
-      render: ({ item }) => <strong className="record-name">{item.name || "-"}</strong>,
+      render: (item) => <strong className="record-name">{item.name || "-"}</strong>,
     },
     {
       key: "age",
       header: "Age",
-      render: ({ item }) => item.age || "-",
+      render: (item) => item.age || "-",
     },
     {
       key: "gender",
       header: "Gender",
-      render: ({ item }) => <span className="soft-pill">{item.gender || "Unknown"}</span>,
+      render: (item) => <span className="soft-pill">{item.gender || "Unknown"}</span>,
     },
     {
       key: "disease",
       header: "Disease",
-      render: ({ item }) => item.disease || "-",
+      render: (item) => item.disease || "-",
     },
     {
       key: "phone",
       header: "Phone",
-      render: ({ item }) => item.phone || "-",
+      render: (item) => item.phone || "-",
     },
     {
       key: "actions",
       header: "Action",
-      render: ({ item, originalIndex }) => (
+      render: (item) => (
         <div className="action-buttons">
           <button
             className="icon-action-btn edit-action"
             type="button"
             aria-label={`Edit ${item.name || "patient"}`}
             title="Edit"
-            onClick={() => editPatient(originalIndex)}
+            onClick={() => editPatient(item._id)}
           >
             <Pencil size={16} />
           </button>
@@ -123,7 +137,7 @@ function Patients() {
             type="button"
             aria-label={`Delete ${item.name || "patient"}`}
             title="Delete"
-            onClick={() => deletePatient(originalIndex)}
+            onClick={() => deletePatient(item._id)}
           >
             <Trash2 size={16} />
           </button>
@@ -153,13 +167,13 @@ function Patients() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredPatients}
-        getRowKey={(row) => row.originalIndex}
+        getRowKey={(row) => row._id}
         emptyMessage="No patients found"
       />
 
       <Modal
         isOpen={isModalOpen}
-        title={editIndex !== null ? "Update Patient" : "Add Patient"}
+        title={editId ? "Update Patient" : "Add Patient"}
         onClose={closeModal}
       >
         <form className="modal-form" onSubmit={savePatient}>
@@ -170,10 +184,12 @@ function Patients() {
           <input className="form-control" name="phone" placeholder="Phone" value={patient.phone} onChange={handleChange} />
 
           <button className="btn btn-primary modal-submit-btn" type="submit">
-            {editIndex !== null ? "Update Patient" : "Add Patient"}
+            {editId ? "Update Patient" : "Add Patient"}
           </button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

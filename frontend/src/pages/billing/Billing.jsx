@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialBill = {
   patient: "",
@@ -19,18 +20,23 @@ function Billing() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("bills"));
-
-    if (data) {
-      setBills(data);
-    }
+    fetchBills();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("bills", JSON.stringify(bills));
-  }, [bills]);
+  const fetchBills = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/bills");
+      setBills(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load bills");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (event) => {
     setBill({
@@ -51,7 +57,7 @@ function Billing() {
     setIsModalOpen(false);
   };
 
-  const saveBill = (event) => {
+  const saveBill = async (event) => {
     event.preventDefault();
 
     if (!bill.patient || !bill.amount) {
@@ -59,32 +65,33 @@ function Billing() {
       return;
     }
 
-    if (editId) {
-      setBills(
-        bills.map((item) => (item.id === editId ? { ...bill, id: editId } : item))
-      );
-    } else {
-      setBills([
-        ...bills,
-        {
-          ...bill,
-          id: Date.now(),
-        },
-      ]);
+    try {
+      if (editId) {
+        await apiPut(`/bills/${editId}`, bill);
+      } else {
+        await apiPost("/bills", bill);
+      }
+      await fetchBills();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save bill");
     }
-
-    closeModal();
   };
 
   const editBill = (id) => {
-    const selected = bills.find((item) => item.id === id);
+    const selected = bills.find((item) => item._id === id);
     setBill(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteBill = (id) => {
-    setBills(bills.filter((item) => item.id !== id));
+  const deleteBill = async (id) => {
+    try {
+      await apiDelete(`/bills/${id}`);
+      await fetchBills();
+    } catch (err) {
+      alert(err.message || "Failed to delete bill");
+    }
   };
 
   const filteredBills = bills.filter((item) =>
@@ -143,7 +150,7 @@ function Billing() {
             type="button"
             aria-label={`Edit bill for ${item.patient || "patient"}`}
             title="Edit"
-            onClick={() => editBill(item.id)}
+            onClick={() => editBill(item._id)}
           >
             <Pencil size={16} />
           </button>
@@ -153,7 +160,7 @@ function Billing() {
             type="button"
             aria-label={`Delete bill for ${item.patient || "patient"}`}
             title="Delete"
-            onClick={() => deleteBill(item.id)}
+            onClick={() => deleteBill(item._id)}
           >
             <Trash2 size={16} />
           </button>
@@ -186,7 +193,7 @@ function Billing() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredBills}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No bills found"
       />
 
@@ -217,6 +224,8 @@ function Billing() {
           </button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

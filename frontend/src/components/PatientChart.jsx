@@ -8,15 +8,27 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-function PatientChart() {
+function PatientChart({ patients = [] }) {
+  const monthly = new Map();
 
-  const data = [
-    { month: "Jan", patients: 30 },
-    { month: "Feb", patients: 45 },
-    { month: "Mar", patients: 60 },
-    { month: "Apr", patients: 80 },
-    { month: "May", patients: 100 },
-  ];
+  patients.forEach((patient) => {
+    const raw = patient?.createdAt;
+    if (!raw) return;
+    const date = new Date(raw);
+    if (isNaN(date.getTime())) return;
+
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const month = date.toLocaleString("en-US", { month: "short" });
+
+    if (!monthly.has(key)) {
+      monthly.set(key, { month, patients: 0 });
+    }
+    monthly.get(key).patients += 1;
+  });
+
+  const data = Array.from(monthly.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, value]) => value);
 
   return (
     <div>

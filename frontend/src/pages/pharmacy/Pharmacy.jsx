@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialMedicine = {
   name: "",
@@ -18,15 +19,23 @@ function Pharmacy() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("medicines"));
-    if (data) setMedicines(data);
+    fetchMedicines();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("medicines", JSON.stringify(medicines));
-  }, [medicines]);
+  const fetchMedicines = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/medicines");
+      setMedicines(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load medicines");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => setMedicine({ ...medicine, [e.target.name]: e.target.value });
 
@@ -42,28 +51,40 @@ function Pharmacy() {
     setIsModalOpen(false);
   };
 
-  const saveMedicine = (e) => {
+  const saveMedicine = async (e) => {
     e.preventDefault();
     if (!medicine.name || !medicine.stock || !medicine.price) {
       alert("Name, Stock, and Price are required");
       return;
     }
-    if (editId) {
-      setMedicines(medicines.map((item) => (item.id === editId ? { ...medicine, id: editId } : item)));
-    } else {
-      setMedicines([...medicines, { ...medicine, id: Date.now() }]);
+    try {
+      if (editId) {
+        await apiPut(`/medicines/${editId}`, medicine);
+      } else {
+        await apiPost("/medicines", medicine);
+      }
+      await fetchMedicines();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save medicine");
     }
-    closeModal();
   };
 
   const editMedicine = (id) => {
-    const selected = medicines.find((item) => item.id === id);
+    const selected = medicines.find((item) => item._id === id);
     setMedicine(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteMedicine = (id) => setMedicines(medicines.filter((item) => item.id !== id));
+  const deleteMedicine = async (id) => {
+    try {
+      await apiDelete(`/medicines/${id}`);
+      await fetchMedicines();
+    } catch (err) {
+      alert(err.message || "Failed to delete medicine");
+    }
+  };
 
   const filteredMedicines = medicines.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase())
@@ -83,8 +104,8 @@ function Pharmacy() {
       key: "actions", header: "Action",
       render: (item) => (
         <div className="action-buttons">
-          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editMedicine(item.id)}><Pencil size={16} /></button>
-          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteMedicine(item.id)}><Trash2 size={16} /></button>
+          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editMedicine(item._id)}><Pencil size={16} /></button>
+          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteMedicine(item._id)}><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -113,7 +134,7 @@ function Pharmacy() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredMedicines}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No medicines found"
       />
 
@@ -128,6 +149,8 @@ function Pharmacy() {
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Medicine" : "Add Medicine"}</button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

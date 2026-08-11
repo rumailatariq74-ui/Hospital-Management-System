@@ -1,42 +1,81 @@
 import { useState, useEffect } from "react";
 import { Save, Trash2 } from "lucide-react";
+import { apiGet, apiPost, apiPut } from "../../services/api";
+
+const defaultSettings = {
+  hospitalName: "MediCare Hospital",
+  address: "",
+  phone: "",
+  email: "",
+  currency: "Rs.",
+  theme: "light",
+  notifications: true,
+};
 
 function Settings() {
-  const [hospitalName, setHospitalName] = useState("MediCare Hospital");
-  const [address, setAddress] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [currency, setCurrency] = useState("Rs.");
-  const [theme, setTheme] = useState("light");
-  const [notifications, setNotifications] = useState(true);
+  const [hospitalName, setHospitalName] = useState(defaultSettings.hospitalName);
+  const [address, setAddress] = useState(defaultSettings.address);
+  const [phone, setPhone] = useState(defaultSettings.phone);
+  const [email, setEmail] = useState(defaultSettings.email);
+  const [currency, setCurrency] = useState(defaultSettings.currency);
+  const [theme, setTheme] = useState(defaultSettings.theme);
+  const [notifications, setNotifications] = useState(defaultSettings.notifications);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [settingsId, setSettingsId] = useState(null);
 
   useEffect(() => {
-    const savedSettings = JSON.parse(localStorage.getItem("hospitalSettings"));
-    if (savedSettings) {
-      setHospitalName(savedSettings.hospitalName || "MediCare Hospital");
-      setAddress(savedSettings.address || "");
-      setPhone(savedSettings.phone || "");
-      setEmail(savedSettings.email || "");
-      setCurrency(savedSettings.currency || "Rs.");
-      setTheme(savedSettings.theme || "light");
-      setNotifications(savedSettings.notifications !== false);
-    }
+    fetchSettings();
   }, []);
 
-  const saveSettings = (e) => {
+  const fetchSettings = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/settings");
+      const settings = Array.isArray(data) && data.length > 0 ? data[0] : data;
+      if (settings) {
+        setSettingsId(settings._id);
+        setHospitalName(settings.hospitalName ?? defaultSettings.hospitalName);
+        setAddress(settings.address ?? defaultSettings.address);
+        setPhone(settings.phone ?? defaultSettings.phone);
+        setEmail(settings.email ?? defaultSettings.email);
+        setCurrency(settings.currency ?? defaultSettings.currency);
+        setTheme(settings.theme ?? defaultSettings.theme);
+        setNotifications(settings.notifications !== false);
+      }
+    } catch (err) {
+      alert(err.message || "Failed to load settings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveSettings = async (e) => {
     e.preventDefault();
-    const settings = { hospitalName, address, phone, email, currency, theme, notifications };
-    localStorage.setItem("hospitalSettings", JSON.stringify(settings));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    const payload = { hospitalName, address, phone, email, currency, theme, notifications };
+    try {
+      setLoading(true);
+      if (settingsId) {
+        await apiPut(`/settings/${settingsId}`, payload);
+      } else {
+        const created = await apiPost("/settings", payload);
+        if (created && created._id) setSettingsId(created._id);
+      }
+      await fetchSettings();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      alert(err.message || "Failed to save settings");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const clearAllData = () => {
-    if (window.confirm("WARNING: This will delete ALL patient, doctor, billing, and other records. This action cannot be undone. Are you sure?")) {
+    if (window.confirm("WARNING: This will delete ALL local records in your browser. This action cannot be undone. Are you sure?")) {
       const keys = ["patients", "doctors", "appointments", "bills", "medicines", "rooms", "labTests", "staff", "bloodBank", "ambulances"];
       keys.forEach(k => localStorage.removeItem(k));
-      alert("All data has been cleared.");
+      alert("All local data has been cleared.");
     }
   };
 
@@ -95,7 +134,7 @@ function Settings() {
               <label htmlFor="notifications" style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text)', cursor: 'pointer' }}>Enable notifications & alerts</label>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
-              <button className="btn btn-primary" type="submit">
+              <button className="btn btn-primary" type="submit" disabled={loading}>
                 <Save size={16} /> Save Settings
               </button>
               {saved && <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: 13 }}>Saved successfully!</span>}

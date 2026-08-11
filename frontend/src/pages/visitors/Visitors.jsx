@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2, LogIn, LogOut, UserCheck } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialVisitor = {
   name: "",
@@ -19,15 +20,23 @@ function Visitors() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("visitors"));
-    if (data) setVisitors(data);
+    fetchVisitors();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("visitors", JSON.stringify(visitors));
-  }, [visitors]);
+  const fetchVisitors = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/visitors");
+      setVisitors(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load visitors");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => setVisitor({ ...visitor, [e.target.name]: e.target.value });
 
@@ -43,28 +52,40 @@ function Visitors() {
     setIsModalOpen(false);
   };
 
-  const saveVisitor = (e) => {
+  const saveVisitor = async (e) => {
     e.preventDefault();
     if (!visitor.name || !visitor.patient) {
       alert("Visitor name and patient name are required");
       return;
     }
-    if (editId) {
-      setVisitors(visitors.map((item) => (item.id === editId ? { ...visitor, id: editId } : item)));
-    } else {
-      setVisitors([...visitors, { ...visitor, id: Date.now() }]);
+    try {
+      if (editId) {
+        await apiPut(`/visitors/${editId}`, visitor);
+      } else {
+        await apiPost("/visitors", visitor);
+      }
+      await fetchVisitors();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save visitor");
     }
-    closeModal();
   };
 
   const editVisitor = (id) => {
-    const selected = visitors.find((item) => item.id === id);
+    const selected = visitors.find((item) => item._id === id);
     setVisitor(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteVisitor = (id) => setVisitors(visitors.filter((item) => item.id !== id));
+  const deleteVisitor = async (id) => {
+    try {
+      await apiDelete(`/visitors/${id}`);
+      await fetchVisitors();
+    } catch (err) {
+      alert(err.message || "Failed to delete visitor");
+    }
+  };
 
   const filteredVisitors = visitors.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -90,8 +111,8 @@ function Visitors() {
       key: "actions", header: "Action",
       render: (item) => (
         <div className="action-buttons">
-          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editVisitor(item.id)}><Pencil size={16} /></button>
-          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteVisitor(item.id)}><Trash2 size={16} /></button>
+          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editVisitor(item._id)}><Pencil size={16} /></button>
+          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteVisitor(item._id)}><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -122,7 +143,7 @@ function Visitors() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredVisitors}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No visitors recorded"
       />
 
@@ -138,6 +159,8 @@ function Visitors() {
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Visitor" : "Add Visitor"}</button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

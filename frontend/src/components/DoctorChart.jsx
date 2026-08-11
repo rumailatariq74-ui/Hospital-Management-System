@@ -9,27 +9,18 @@ import {
 } from "recharts";
 
 
-function DoctorChart() {
+function DoctorChart({ doctors = [] }) {
+  const counts = {};
 
-  const data = [
-    {
-      department: "Cardiology",
-      doctors: 8,
-    },
-    {
-      department: "Neurology",
-      doctors: 5,
-    },
-    {
-      department: "Dental",
-      doctors: 7,
-    },
-    {
-      department: "General",
-      doctors: 10,
-    },
-  ];
+  doctors.forEach((doctor) => {
+    const specialization = doctor?.specialization || "General";
+    counts[specialization] = (counts[specialization] || 0) + 1;
+  });
 
+  const data = Object.entries(counts).map(([department, doctors]) => ({
+    department,
+    doctors,
+  }));
 
   return (
     <div>

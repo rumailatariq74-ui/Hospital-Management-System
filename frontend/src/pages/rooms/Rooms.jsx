@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialRoom = {
   roomNo: "",
@@ -18,15 +19,23 @@ function Rooms() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("rooms"));
-    if (data) setRooms(data);
+    fetchRooms();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("rooms", JSON.stringify(rooms));
-  }, [rooms]);
+  const fetchRooms = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/rooms");
+      setRooms(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load rooms");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => setRoom({ ...room, [e.target.name]: e.target.value });
 
@@ -42,28 +51,40 @@ function Rooms() {
     setIsModalOpen(false);
   };
 
-  const saveRoom = (e) => {
+  const saveRoom = async (e) => {
     e.preventDefault();
     if (!room.roomNo || !room.beds) {
       alert("Room Number and Beds are required");
       return;
     }
-    if (editId) {
-      setRooms(rooms.map((item) => (item.id === editId ? { ...room, id: editId } : item)));
-    } else {
-      setRooms([...rooms, { ...room, id: Date.now() }]);
+    try {
+      if (editId) {
+        await apiPut(`/rooms/${editId}`, room);
+      } else {
+        await apiPost("/rooms", room);
+      }
+      await fetchRooms();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save room");
     }
-    closeModal();
   };
 
   const editRoom = (id) => {
-    const selected = rooms.find((item) => item.id === id);
+    const selected = rooms.find((item) => item._id === id);
     setRoom(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteRoom = (id) => setRooms(rooms.filter((item) => item.id !== id));
+  const deleteRoom = async (id) => {
+    try {
+      await apiDelete(`/rooms/${id}`);
+      await fetchRooms();
+    } catch (err) {
+      alert(err.message || "Failed to delete room");
+    }
+  };
 
   const filteredRooms = rooms.filter((item) =>
     item.roomNo.toLowerCase().includes(search.toLowerCase())
@@ -84,8 +105,8 @@ function Rooms() {
       key: "actions", header: "Action",
       render: (item) => (
         <div className="action-buttons">
-          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editRoom(item.id)}><Pencil size={16} /></button>
-          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteRoom(item.id)}><Trash2 size={16} /></button>
+          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editRoom(item._id)}><Pencil size={16} /></button>
+          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteRoom(item._id)}><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -115,7 +136,7 @@ function Rooms() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredRooms}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No rooms found"
       />
 
@@ -140,6 +161,8 @@ function Rooms() {
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Room" : "Add Room"}</button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

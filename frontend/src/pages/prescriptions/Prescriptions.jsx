@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialRx = {
   patient: "",
@@ -19,15 +20,23 @@ function Prescriptions() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("prescriptions"));
-    if (data) setRxList(data);
+    fetchPrescriptions();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("prescriptions", JSON.stringify(rxList));
-  }, [rxList]);
+  const fetchPrescriptions = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/prescriptions");
+      setRxList(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load prescriptions");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => setRx({ ...rx, [e.target.name]: e.target.value });
 
@@ -43,28 +52,40 @@ function Prescriptions() {
     setIsModalOpen(false);
   };
 
-  const saveRx = (e) => {
+  const saveRx = async (e) => {
     e.preventDefault();
     if (!rx.patient || !rx.medicines) {
       alert("Patient and medicines are required");
       return;
     }
-    if (editId) {
-      setRxList(rxList.map((item) => (item.id === editId ? { ...rx, id: editId } : item)));
-    } else {
-      setRxList([...rxList, { ...rx, id: Date.now() }]);
+    try {
+      if (editId) {
+        await apiPut(`/prescriptions/${editId}`, rx);
+      } else {
+        await apiPost("/prescriptions", rx);
+      }
+      await fetchPrescriptions();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save prescription");
     }
-    closeModal();
   };
 
   const editRx = (id) => {
-    const selected = rxList.find((item) => item.id === id);
+    const selected = rxList.find((item) => item._id === id);
     setRx(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteRx = (id) => setRxList(rxList.filter((item) => item.id !== id));
+  const deleteRx = async (id) => {
+    try {
+      await apiDelete(`/prescriptions/${id}`);
+      await fetchPrescriptions();
+    } catch (err) {
+      alert(err.message || "Failed to delete prescription");
+    }
+  };
 
   const filteredRx = rxList.filter((item) =>
     item.patient.toLowerCase().includes(search.toLowerCase()) ||
@@ -90,8 +111,8 @@ function Prescriptions() {
       key: "actions", header: "Action",
       render: (item) => (
         <div className="action-buttons">
-          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editRx(item.id)}><Pencil size={16} /></button>
-          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteRx(item.id)}><Trash2 size={16} /></button>
+          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editRx(item._id)}><Pencil size={16} /></button>
+          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteRx(item._id)}><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -119,7 +140,7 @@ function Prescriptions() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredRx}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No prescriptions found"
       />
 
@@ -135,6 +156,8 @@ function Prescriptions() {
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Prescription" : "Save Prescription"}</button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

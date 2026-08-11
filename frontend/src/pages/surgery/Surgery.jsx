@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2, Scissors, Clock, AlertCircle } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialSurgery = {
   patient: "",
@@ -22,15 +23,23 @@ function Surgery() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("surgeries"));
-    if (data) setSurgeries(data);
+    fetchSurgeries();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("surgeries", JSON.stringify(surgeries));
-  }, [surgeries]);
+  const fetchSurgeries = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/surgeries");
+      setSurgeries(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load surgeries");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => setSurgery({ ...surgery, [e.target.name]: e.target.value });
 
@@ -46,28 +55,40 @@ function Surgery() {
     setIsModalOpen(false);
   };
 
-  const saveSurgery = (e) => {
+  const saveSurgery = async (e) => {
     e.preventDefault();
     if (!surgery.patient || !surgery.surgeon || !surgery.type) {
       alert("Patient, Surgeon, and Surgery Type are required");
       return;
     }
-    if (editId) {
-      setSurgeries(surgeries.map((item) => (item.id === editId ? { ...surgery, id: editId } : item)));
-    } else {
-      setSurgeries([...surgeries, { ...surgery, id: Date.now() }]);
+    try {
+      if (editId) {
+        await apiPut(`/surgeries/${editId}`, surgery);
+      } else {
+        await apiPost("/surgeries", surgery);
+      }
+      await fetchSurgeries();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save surgery");
     }
-    closeModal();
   };
 
   const editSurgery = (id) => {
-    const selected = surgeries.find((item) => item.id === id);
+    const selected = surgeries.find((item) => item._id === id);
     setSurgery(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteSurgery = (id) => setSurgeries(surgeries.filter((item) => item.id !== id));
+  const deleteSurgery = async (id) => {
+    try {
+      await apiDelete(`/surgeries/${id}`);
+      await fetchSurgeries();
+    } catch (err) {
+      alert(err.message || "Failed to delete surgery");
+    }
+  };
 
   const filteredSurgeries = surgeries.filter((item) =>
     item.patient.toLowerCase().includes(search.toLowerCase()) ||
@@ -104,8 +125,8 @@ function Surgery() {
       key: "actions", header: "Action",
       render: (item) => (
         <div className="action-buttons">
-          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editSurgery(item.id)}><Pencil size={16} /></button>
-          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteSurgery(item.id)}><Trash2 size={16} /></button>
+          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editSurgery(item._id)}><Pencil size={16} /></button>
+          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteSurgery(item._id)}><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -139,7 +160,7 @@ function Surgery() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredSurgeries}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No surgeries scheduled"
       />
 
@@ -167,6 +188,8 @@ function Surgery() {
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Surgery" : "Schedule Surgery"}</button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

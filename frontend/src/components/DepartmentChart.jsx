@@ -7,15 +7,19 @@ import {
 } from "recharts";
 
 
-function DepartmentChart() {
+function DepartmentChart({ doctors = [] }) {
+  const counts = {};
 
-  const data = [
-    { name: "Cardiology", value: 30 },
-    { name: "Neurology", value: 20 },
-    { name: "Dental", value: 25 },
-    { name: "General", value: 25 },
-  ];
+  doctors.forEach((doctor) => {
+    const specialization = doctor?.specialization || "General";
+    counts[specialization] = (counts[specialization] || 0) + 1;
+  });
 
+  let data = Object.entries(counts).map(([name, value]) => ({ name, value }));
+
+  if (data.length === 0) {
+    data = [{ name: "No Data", value: 1 }];
+  }
 
   return (
     <div>

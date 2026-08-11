@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2, Megaphone, Pin, Bell } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialNotice = {
   title: "",
@@ -18,15 +19,23 @@ function NoticeBoard() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("notices"));
-    if (data) setNotices(data);
+    fetchNotices();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("notices", JSON.stringify(notices));
-  }, [notices]);
+  const fetchNotices = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/notices");
+      setNotices(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load notices");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -45,31 +54,50 @@ function NoticeBoard() {
     setIsModalOpen(false);
   };
 
-  const saveNotice = (e) => {
+  const saveNotice = async (e) => {
     e.preventDefault();
     if (!notice.title || !notice.message) {
       alert("Title and message are required");
       return;
     }
-    if (editId) {
-      setNotices(notices.map((item) => (item.id === editId ? { ...notice, id: editId } : item)));
-    } else {
-      setNotices([...notices, { ...notice, id: Date.now() }]);
+    try {
+      if (editId) {
+        await apiPut(`/notices/${editId}`, notice);
+      } else {
+        await apiPost("/notices", notice);
+      }
+      await fetchNotices();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save notice");
     }
-    closeModal();
   };
 
   const editNotice = (id) => {
-    const selected = notices.find((item) => item.id === id);
+    const selected = notices.find((item) => item._id === id);
     setNotice(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteNotice = (id) => setNotices(notices.filter((item) => item.id !== id));
+  const deleteNotice = async (id) => {
+    try {
+      await apiDelete(`/notices/${id}`);
+      await fetchNotices();
+    } catch (err) {
+      alert(err.message || "Failed to delete notice");
+    }
+  };
 
-  const togglePin = (id) => {
-    setNotices(notices.map((item) => (item.id === id ? { ...item, pinned: !item.pinned } : item)));
+  const togglePin = async (id) => {
+    const item = notices.find((n) => n._id === id);
+    if (!item) return;
+    try {
+      await apiPut(`/notices/${id}`, { ...item, pinned: !item.pinned });
+      await fetchNotices();
+    } catch (err) {
+      alert(err.message || "Failed to update notice");
+    }
   };
 
   const filteredNotices = notices.filter((item) =>
@@ -109,11 +137,11 @@ function NoticeBoard() {
       key: "actions", header: "Action",
       render: (item) => (
         <div className="action-buttons">
-          <button className="icon-action-btn" type="button" title={item.pinned ? "Unpin" : "Pin"} onClick={() => togglePin(item.id)} style={{ background: item.pinned ? 'rgba(212, 160, 23, 0.1)' : undefined, color: item.pinned ? '#d4a017' : undefined }}>
+          <button className="icon-action-btn" type="button" title={item.pinned ? "Unpin" : "Pin"} onClick={() => togglePin(item._id)} style={{ background: item.pinned ? 'rgba(212, 160, 23, 0.1)' : undefined, color: item.pinned ? '#d4a017' : undefined }}>
             <Pin size={16} />
           </button>
-          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editNotice(item.id)}><Pencil size={16} /></button>
-          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteNotice(item.id)}><Trash2 size={16} /></button>
+          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editNotice(item._id)}><Pencil size={16} /></button>
+          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteNotice(item._id)}><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -146,7 +174,7 @@ function NoticeBoard() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredNotices}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No notices posted"
       />
 
@@ -174,6 +202,8 @@ function NoticeBoard() {
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Notice" : "Post Notice"}</button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

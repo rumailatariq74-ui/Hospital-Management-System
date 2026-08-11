@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialStaff = {
   name: "",
@@ -18,15 +19,23 @@ function Staff() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("staff"));
-    if (data) setStaff(data);
+    fetchStaff();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("staff", JSON.stringify(staff));
-  }, [staff]);
+  const fetchStaff = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/staff");
+      setStaff(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load staff");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => setStaffMember({ ...staffMember, [e.target.name]: e.target.value });
 
@@ -42,28 +51,40 @@ function Staff() {
     setIsModalOpen(false);
   };
 
-  const saveStaff = (e) => {
+  const saveStaff = async (e) => {
     e.preventDefault();
     if (!staffMember.name || !staffMember.role) {
       alert("Name and Role are required");
       return;
     }
-    if (editId) {
-      setStaff(staff.map((item) => (item.id === editId ? { ...staffMember, id: editId } : item)));
-    } else {
-      setStaff([...staff, { ...staffMember, id: Date.now() }]);
+    try {
+      if (editId) {
+        await apiPut(`/staff/${editId}`, staffMember);
+      } else {
+        await apiPost("/staff", staffMember);
+      }
+      await fetchStaff();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save staff");
     }
-    closeModal();
   };
 
   const editStaffMember = (id) => {
-    const selected = staff.find((item) => item.id === id);
+    const selected = staff.find((item) => item._id === id);
     setStaffMember(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteStaffMember = (id) => setStaff(staff.filter((item) => item.id !== id));
+  const deleteStaffMember = async (id) => {
+    try {
+      await apiDelete(`/staff/${id}`);
+      await fetchStaff();
+    } catch (err) {
+      alert(err.message || "Failed to delete staff");
+    }
+  };
 
   const filteredStaff = staff.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -83,8 +104,8 @@ function Staff() {
       key: "actions", header: "Action",
       render: (item) => (
         <div className="action-buttons">
-          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editStaffMember(item.id)}><Pencil size={16} /></button>
-          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteStaffMember(item.id)}><Trash2 size={16} /></button>
+          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editStaffMember(item._id)}><Pencil size={16} /></button>
+          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteStaffMember(item._id)}><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -112,7 +133,7 @@ function Staff() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredStaff}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No staff found"
       />
 
@@ -139,6 +160,8 @@ function Staff() {
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Staff" : "Add Staff"}</button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

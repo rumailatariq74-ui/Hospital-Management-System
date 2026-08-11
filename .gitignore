@@ -1,0 +1,25 @@
+# Dependencies
+node_modules
+*/node_modules
+
+# Build outputs
+frontend/dist
+dist
+
+# Environment variables
+.env
+*.env
+!.env.example
+
+# Editor
+.vscode
+.idea
+.DS_Store
+
+# Logs
+*.log
+logs
+npm-debug.log*
+
+# Broken/old nested dirs (accidental)
+Backend/config/controllers/middleware/routes/.env

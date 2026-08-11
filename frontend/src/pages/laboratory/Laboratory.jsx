@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialTest = {
   patient: "",
@@ -18,15 +19,23 @@ function Laboratory() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("labTests"));
-    if (data) setTests(data);
+    fetchTests();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("labTests", JSON.stringify(tests));
-  }, [tests]);
+  const fetchTests = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/lab-tests");
+      setTests(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load lab tests");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => setTest({ ...test, [e.target.name]: e.target.value });
 
@@ -42,28 +51,40 @@ function Laboratory() {
     setIsModalOpen(false);
   };
 
-  const saveTest = (e) => {
+  const saveTest = async (e) => {
     e.preventDefault();
     if (!test.patient || !test.testName) {
       alert("Patient and Test Name are required");
       return;
     }
-    if (editId) {
-      setTests(tests.map((item) => (item.id === editId ? { ...test, id: editId } : item)));
-    } else {
-      setTests([...tests, { ...test, id: Date.now() }]);
+    try {
+      if (editId) {
+        await apiPut(`/lab-tests/${editId}`, test);
+      } else {
+        await apiPost("/lab-tests", test);
+      }
+      await fetchTests();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save lab test");
     }
-    closeModal();
   };
 
   const editTest = (id) => {
-    const selected = tests.find((item) => item.id === id);
+    const selected = tests.find((item) => item._id === id);
     setTest(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteTest = (id) => setTests(tests.filter((item) => item.id !== id));
+  const deleteTest = async (id) => {
+    try {
+      await apiDelete(`/lab-tests/${id}`);
+      await fetchTests();
+    } catch (err) {
+      alert(err.message || "Failed to delete lab test");
+    }
+  };
 
   const filteredTests = tests.filter((item) =>
     item.patient.toLowerCase().includes(search.toLowerCase()) ||
@@ -84,8 +105,8 @@ function Laboratory() {
       key: "actions", header: "Action",
       render: (item) => (
         <div className="action-buttons">
-          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editTest(item.id)}><Pencil size={16} /></button>
-          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteTest(item.id)}><Trash2 size={16} /></button>
+          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editTest(item._id)}><Pencil size={16} /></button>
+          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteTest(item._id)}><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -114,7 +135,7 @@ function Laboratory() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredTests}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No lab tests found"
       />
 
@@ -133,6 +154,8 @@ function Laboratory() {
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Test" : "Add Test"}</button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

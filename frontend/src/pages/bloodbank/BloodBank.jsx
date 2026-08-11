@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialDonation = {
   donor: "",
@@ -18,15 +19,23 @@ function BloodBank() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("bloodBank"));
-    if (data) setDonations(data);
+    fetchDonations();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("bloodBank", JSON.stringify(donations));
-  }, [donations]);
+  const fetchDonations = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/blood-bank");
+      setDonations(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load blood bank");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => setDonation({ ...donation, [e.target.name]: e.target.value });
 
@@ -42,28 +51,40 @@ function BloodBank() {
     setIsModalOpen(false);
   };
 
-  const saveDonation = (e) => {
+  const saveDonation = async (e) => {
     e.preventDefault();
     if (!donation.donor || !donation.units) {
       alert("Donor name and units are required");
       return;
     }
-    if (editId) {
-      setDonations(donations.map((item) => (item.id === editId ? { ...donation, id: editId } : item)));
-    } else {
-      setDonations([...donations, { ...donation, id: Date.now() }]);
+    try {
+      if (editId) {
+        await apiPut(`/blood-bank/${editId}`, donation);
+      } else {
+        await apiPost("/blood-bank", donation);
+      }
+      await fetchDonations();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save donation");
     }
-    closeModal();
   };
 
   const editDonation = (id) => {
-    const selected = donations.find((item) => item.id === id);
+    const selected = donations.find((item) => item._id === id);
     setDonation(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteDonation = (id) => setDonations(donations.filter((item) => item.id !== id));
+  const deleteDonation = async (id) => {
+    try {
+      await apiDelete(`/blood-bank/${id}`);
+      await fetchDonations();
+    } catch (err) {
+      alert(err.message || "Failed to delete donation");
+    }
+  };
 
   const filteredDonations = donations.filter((item) =>
     item.donor.toLowerCase().includes(search.toLowerCase()) ||
@@ -84,8 +105,8 @@ function BloodBank() {
       key: "actions", header: "Action",
       render: (item) => (
         <div className="action-buttons">
-          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editDonation(item.id)}><Pencil size={16} /></button>
-          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteDonation(item.id)}><Trash2 size={16} /></button>
+          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editDonation(item._id)}><Pencil size={16} /></button>
+          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteDonation(item._id)}><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -114,7 +135,7 @@ function BloodBank() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredDonations}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No donations found"
       />
 
@@ -136,6 +157,8 @@ function BloodBank() {
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Donation" : "Add Donation"}</button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

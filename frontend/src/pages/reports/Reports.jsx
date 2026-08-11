@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiGet } from "../../services/api";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell, AreaChart, Area
@@ -13,12 +14,27 @@ function Reports() {
   const [staff, setStaff] = useState([]);
 
   useEffect(() => {
-    setPatients(JSON.parse(localStorage.getItem("patients")) || []);
-    setAppointments(JSON.parse(localStorage.getItem("appointments")) || []);
-    setBills(JSON.parse(localStorage.getItem("bills")) || []);
-    setMedicines(JSON.parse(localStorage.getItem("medicines")) || []);
-    setRooms(JSON.parse(localStorage.getItem("rooms")) || []);
-    setStaff(JSON.parse(localStorage.getItem("staff")) || []);
+    async function fetchData() {
+      try {
+        const [patientsData, appointmentsData, roomsData, medicinesData, staffData, billsData] = await Promise.all([
+          apiGet("/patients"),
+          apiGet("/appointments"),
+          apiGet("/rooms"),
+          apiGet("/medicines"),
+          apiGet("/staff"),
+          apiGet("/bills"),
+        ]);
+        setPatients(patientsData || []);
+        setAppointments(appointmentsData || []);
+        setRooms(roomsData || []);
+        setMedicines(medicinesData || []);
+        setStaff(staffData || []);
+        setBills(billsData || []);
+      } catch (error) {
+        console.error("Failed to load reports data:", error);
+      }
+    }
+    fetchData();
   }, []);
 
   const totalRevenue = bills.reduce((sum, b) => sum + Number(b.amount || 0), 0);
@@ -27,22 +43,55 @@ function Reports() {
   const inventoryValue = medicines.reduce((sum, m) => sum + Number(m.stock || 0) * Number(m.price || 0), 0);
   const totalPayroll = staff.reduce((sum, s) => sum + Number(s.salary || 0), 0);
 
-  const revenueData = [
-    { month: "Jan", revenue: 12000, expenses: 8000 },
-    { month: "Feb", revenue: 15000, expenses: 9000 },
-    { month: "Mar", revenue: 18000, expenses: 10000 },
-    { month: "Apr", revenue: 22000, expenses: 11000 },
-    { month: "May", revenue: 25000, expenses: 12000 },
-    { month: "Jun", revenue: 28000, expenses: 13000 },
-  ];
+  const monthlyRevenue = {};
+  bills.forEach((bill) => {
+    const raw = bill?.date || bill?.createdAt;
+    if (!raw) return;
+    const date = new Date(raw);
+    if (isNaN(date.getTime())) return;
 
-  const departmentData = [
-    { name: "Cardiology", patients: 45, revenue: 85000 },
-    { name: "Neurology", patients: 30, revenue: 62000 },
-    { name: "Dental", patients: 55, revenue: 45000 },
-    { name: "General", patients: 80, revenue: 38000 },
-    { name: "Pediatrics", patients: 40, revenue: 52000 },
-  ];
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const month = date.toLocaleString("en-US", { month: "short" });
+
+    if (!monthlyRevenue[key]) {
+      monthlyRevenue[key] = { month, revenue: 0, expenses: 0 };
+    }
+    monthlyRevenue[key].revenue += Number(bill.amount || 0);
+  });
+
+  const totalMonthlyPayroll = staff.reduce((sum, s) => sum + Number(s.salary || 0), 0);
+  Object.values(monthlyRevenue).forEach((item) => {
+    item.expenses = totalMonthlyPayroll;
+  });
+
+  const revenueData = Object.entries(monthlyRevenue)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, value]) => value);
+
+  const byDisease = {};
+  const patientDiseaseByName = {};
+
+  patients.forEach((patient) => {
+    const disease = patient?.disease || "General";
+    if (!byDisease[disease]) {
+      byDisease[disease] = { name: disease, patients: 0, revenue: 0 };
+    }
+    byDisease[disease].patients += 1;
+    if (patient?.name) {
+      patientDiseaseByName[patient.name] = disease;
+    }
+  });
+
+  bills.forEach((bill) => {
+    const amount = Number(bill?.amount || 0);
+    const patient = bill?.patient;
+    const disease = patientDiseaseByName[patient];
+    if (disease && byDisease[disease]) {
+      byDisease[disease].revenue += amount;
+    }
+  });
+
+  const departmentData = Object.values(byDisease);
 
   const pieColors = ["#147570", "#8FB59A", "#103D3E", "#1a918b", "#b5d4be"];
 

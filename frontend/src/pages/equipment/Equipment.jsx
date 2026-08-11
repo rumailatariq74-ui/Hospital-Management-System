@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2, Wrench, Calendar, AlertTriangle } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialEquipment = {
   name: "",
@@ -21,15 +22,23 @@ function Equipment() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("equipments"));
-    if (data) setEquipments(data);
+    fetchEquipments();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("equipments", JSON.stringify(equipments));
-  }, [equipments]);
+  const fetchEquipments = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/equipment");
+      setEquipments(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load equipment");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => setEquipment({ ...equipment, [e.target.name]: e.target.value });
 
@@ -45,28 +54,40 @@ function Equipment() {
     setIsModalOpen(false);
   };
 
-  const saveEquipment = (e) => {
+  const saveEquipment = async (e) => {
     e.preventDefault();
     if (!equipment.name || !equipment.serialNo) {
       alert("Equipment name and serial number are required");
       return;
     }
-    if (editId) {
-      setEquipments(equipments.map((item) => (item.id === editId ? { ...equipment, id: editId } : item)));
-    } else {
-      setEquipments([...equipments, { ...equipment, id: Date.now() }]);
+    try {
+      if (editId) {
+        await apiPut(`/equipment/${editId}`, equipment);
+      } else {
+        await apiPost("/equipment", equipment);
+      }
+      await fetchEquipments();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save equipment");
     }
-    closeModal();
   };
 
   const editEquipmentItem = (id) => {
-    const selected = equipments.find((item) => item.id === id);
+    const selected = equipments.find((item) => item._id === id);
     setEquipment(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteEquipmentItem = (id) => setEquipments(equipments.filter((item) => item.id !== id));
+  const deleteEquipmentItem = async (id) => {
+    try {
+      await apiDelete(`/equipment/${id}`);
+      await fetchEquipments();
+    } catch (err) {
+      alert(err.message || "Failed to delete equipment");
+    }
+  };
 
   const filteredEquipments = equipments.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -94,8 +115,8 @@ function Equipment() {
       key: "actions", header: "Action",
       render: (item) => (
         <div className="action-buttons">
-          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editEquipmentItem(item.id)}><Pencil size={16} /></button>
-          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteEquipmentItem(item.id)}><Trash2 size={16} /></button>
+          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editEquipmentItem(item._id)}><Pencil size={16} /></button>
+          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteEquipmentItem(item._id)}><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -134,7 +155,7 @@ function Equipment() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredEquipments}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No equipment registered"
       />
 
@@ -156,6 +177,8 @@ function Equipment() {
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Equipment" : "Add Equipment"}</button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }

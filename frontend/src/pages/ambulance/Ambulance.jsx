@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
 
 const initialAmbulance = {
   vehicleNo: "",
@@ -18,15 +19,23 @@ function Ambulance() {
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("ambulances"));
-    if (data) setAmbulances(data);
+    fetchAmbulances();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("ambulances", JSON.stringify(ambulances));
-  }, [ambulances]);
+  const fetchAmbulances = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGet("/ambulances");
+      setAmbulances(data || []);
+    } catch (err) {
+      alert(err.message || "Failed to load ambulances");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => setAmbulance({ ...ambulance, [e.target.name]: e.target.value });
 
@@ -42,28 +51,40 @@ function Ambulance() {
     setIsModalOpen(false);
   };
 
-  const saveAmbulance = (e) => {
+  const saveAmbulance = async (e) => {
     e.preventDefault();
     if (!ambulance.vehicleNo || !ambulance.driver) {
       alert("Vehicle number and driver are required");
       return;
     }
-    if (editId) {
-      setAmbulances(ambulances.map((item) => (item.id === editId ? { ...ambulance, id: editId } : item)));
-    } else {
-      setAmbulances([...ambulances, { ...ambulance, id: Date.now() }]);
+    try {
+      if (editId) {
+        await apiPut(`/ambulances/${editId}`, ambulance);
+      } else {
+        await apiPost("/ambulances", ambulance);
+      }
+      await fetchAmbulances();
+      closeModal();
+    } catch (err) {
+      alert(err.message || "Failed to save ambulance");
     }
-    closeModal();
   };
 
   const editAmbulance = (id) => {
-    const selected = ambulances.find((item) => item.id === id);
+    const selected = ambulances.find((item) => item._id === id);
     setAmbulance(selected);
     setEditId(id);
     setIsModalOpen(true);
   };
 
-  const deleteAmbulance = (id) => setAmbulances(ambulances.filter((item) => item.id !== id));
+  const deleteAmbulance = async (id) => {
+    try {
+      await apiDelete(`/ambulances/${id}`);
+      await fetchAmbulances();
+    } catch (err) {
+      alert(err.message || "Failed to delete ambulance");
+    }
+  };
 
   const filteredAmbulances = ambulances.filter((item) =>
     item.vehicleNo.toLowerCase().includes(search.toLowerCase()) ||
@@ -84,8 +105,8 @@ function Ambulance() {
       key: "actions", header: "Action",
       render: (item) => (
         <div className="action-buttons">
-          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editAmbulance(item.id)}><Pencil size={16} /></button>
-          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteAmbulance(item.id)}><Trash2 size={16} /></button>
+          <button className="icon-action-btn edit-action" type="button" aria-label="Edit" title="Edit" onClick={() => editAmbulance(item._id)}><Pencil size={16} /></button>
+          <button className="icon-action-btn delete-action" type="button" aria-label="Delete" title="Delete" onClick={() => deleteAmbulance(item._id)}><Trash2 size={16} /></button>
         </div>
       ),
     },
@@ -114,7 +135,7 @@ function Ambulance() {
         onSearchChange={setSearch}
         columns={columns}
         data={filteredAmbulances}
-        getRowKey={(row) => row.id}
+        getRowKey={(row) => row._id}
         emptyMessage="No ambulances found"
       />
 
@@ -137,6 +158,8 @@ function Ambulance() {
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Ambulance" : "Add Ambulance"}</button>
         </form>
       </Modal>
+
+      {loading && <div className="loading" style={{ textAlign: "center", padding: 12 }}>Loading...</div>}
     </div>
   );
 }
