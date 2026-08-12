@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
+import FormField from "./FormField";
+import { digitsOnly, numericInputProps } from "../utils/inputValidation";
 
 function AddPatientForm() {
   const [name, setName] = useState("");
@@ -7,7 +10,7 @@ function AddPatientForm() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    alert(`Patient Added\nName: ${name}\nAge: ${age}`);
+    toast.success(`Patient Added\nName: ${name}\nAge: ${age}`);
 
     setName("");
     setAge("");
@@ -18,19 +21,24 @@ function AddPatientForm() {
       <h2>Add Patient</h2>
 
       <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="Patient Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <FormField label="Patient Name">
+          <input
+            type="text"
+            placeholder="Enter patient name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </FormField>
 
-        <input
-          type="number"
-          placeholder="Age"
-          value={age}
-          onChange={(e) => setAge(e.target.value)}
-        />
+        <FormField label="Age">
+          <input
+            type="text"
+            placeholder="Enter age"
+            value={age}
+            onChange={(e) => setAge(digitsOnly(e.target.value))}
+            {...numericInputProps}
+          />
+        </FormField>
 
         <button type="submit">Add Patient</button>
       </form>

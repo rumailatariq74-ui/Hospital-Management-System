@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2, AlertTriangle, HeartPulse } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
+import SearchableDropdown from "../../components/SearchableDropdown";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
 
 const initialCase = {
   patient: "",
@@ -21,10 +24,23 @@ function Emergency() {
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors] = useState([]);
 
   useEffect(() => {
     fetchCases();
+    fetchFormOptions();
   }, []);
+
+  const fetchFormOptions = async () => {
+    try {
+      const [patientData, doctorData] = await Promise.all([apiGet("/patients"), apiGet("/doctors")]);
+      setPatients(patientData || []);
+      setDoctors(doctorData || []);
+    } catch (err) {
+      toast.error(err.message || "Failed to load patient and doctor options");
+    }
+  };
 
   const fetchCases = async () => {
     try {
@@ -32,7 +48,7 @@ function Emergency() {
       const data = await apiGet("/emergency");
       setCases(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load emergency cases");
+      toast.error(err.message || "Failed to load emergency cases");
     } finally {
       setLoading(false);
     }
@@ -55,7 +71,7 @@ function Emergency() {
   const saveCase = async (e) => {
     e.preventDefault();
     if (!caseItem.patient || !caseItem.condition) {
-      alert("Patient and condition are required");
+      toast.warning("Patient and condition are required");
       return;
     }
     try {
@@ -67,7 +83,7 @@ function Emergency() {
       await fetchCases();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save emergency case");
+      toast.error(err.message || "Failed to save emergency case");
     }
   };
 
@@ -83,7 +99,7 @@ function Emergency() {
       await apiDelete(`/emergency/${id}`);
       await fetchCases();
     } catch (err) {
-      alert(err.message || "Failed to delete emergency case");
+      toast.error(err.message || "Failed to delete emergency case");
     }
   };
 
@@ -95,6 +111,8 @@ function Emergency() {
   const waiting = cases.filter((c) => c.status === "Waiting").length;
   const inTreatment = cases.filter((c) => c.status === "In Treatment").length;
   const critical = cases.filter((c) => c.priority === "Critical").length;
+  const patientOptions = patients.map((patient) => patient.name).filter(Boolean);
+  const doctorOptions = doctors.map((doctor) => doctor.name).filter(Boolean);
 
   const columns = [
     { key: "patient", header: "Patient", render: (item) => <strong className="record-name">{item.patient || "-"}</strong> },
@@ -166,24 +184,34 @@ function Emergency() {
 
       <Modal isOpen={isModalOpen} title={editId ? "Update Case" : "Add Emergency Case"} onClose={closeModal}>
         <form className="modal-form" onSubmit={saveCase}>
-          <input className="form-control" name="patient" placeholder="Patient Name" value={caseItem.patient} onChange={handleChange} />
-          <input className="form-control" name="condition" placeholder="Condition (e.g. Chest Pain, Trauma)" value={caseItem.condition} onChange={handleChange} />
-          <select className="form-control" name="priority" value={caseItem.priority} onChange={handleChange}>
-            <option>Critical</option>
-            <option>High</option>
-            <option>Medium</option>
-            <option>Low</option>
-          </select>
-          <input className="form-control" name="doctor" placeholder="Attending Doctor" value={caseItem.doctor} onChange={handleChange} />
-          <input className="form-control" name="vitals" placeholder="Vitals (e.g. BP 120/80, HR 72)" value={caseItem.vitals} onChange={handleChange} />
-          <select className="form-control" name="status" value={caseItem.status} onChange={handleChange}>
-            <option>Waiting</option>
-            <option>In Treatment</option>
-            <option>Admitted</option>
-            <option>Discharged</option>
-            <option>Referred</option>
-          </select>
-          <input className="form-control" type="time" name="time" value={caseItem.time} onChange={handleChange} />
+          <SearchableDropdown label="Patient" value={caseItem.patient} options={patientOptions} placeholder="Select patient" onChange={(value) => setCaseItem({ ...caseItem, patient: value })} />
+          <FormField label="Condition">
+            <input className="form-control" name="condition" placeholder="e.g. Chest Pain, Trauma" value={caseItem.condition} onChange={handleChange} />
+          </FormField>
+          <FormField label="Priority">
+            <select className="form-control" name="priority" value={caseItem.priority} onChange={handleChange}>
+              <option>Critical</option>
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
+          </FormField>
+          <SearchableDropdown label="Attending Doctor" value={caseItem.doctor} options={doctorOptions} placeholder="Select doctor" onChange={(value) => setCaseItem({ ...caseItem, doctor: value })} />
+          <FormField label="Vitals">
+            <input className="form-control" name="vitals" placeholder="e.g. BP 120/80, HR 72" value={caseItem.vitals} onChange={handleChange} />
+          </FormField>
+          <FormField label="Status">
+            <select className="form-control" name="status" value={caseItem.status} onChange={handleChange}>
+              <option>Waiting</option>
+              <option>In Treatment</option>
+              <option>Admitted</option>
+              <option>Discharged</option>
+              <option>Referred</option>
+            </select>
+          </FormField>
+          <FormField label="Time">
+            <input className="form-control" type="time" name="time" value={caseItem.time} onChange={handleChange} />
+          </FormField>
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Case" : "Add Case"}</button>
         </form>
       </Modal>

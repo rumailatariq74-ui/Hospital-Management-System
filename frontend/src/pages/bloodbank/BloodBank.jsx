@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
+import { digitsOnly, numericInputProps } from "../../utils/inputValidation";
 
 const initialDonation = {
   donor: "",
@@ -31,13 +34,17 @@ function BloodBank() {
       const data = await apiGet("/blood-bank");
       setDonations(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load blood bank");
+      toast.error(err.message || "Failed to load blood bank");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => setDonation({ ...donation, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const numericFields = ["units", "contact"];
+    const value = numericFields.includes(e.target.name) ? digitsOnly(e.target.value) : e.target.value;
+    setDonation({ ...donation, [e.target.name]: value });
+  };
 
   const openAddModal = () => {
     setDonation(initialDonation);
@@ -54,7 +61,7 @@ function BloodBank() {
   const saveDonation = async (e) => {
     e.preventDefault();
     if (!donation.donor || !donation.units) {
-      alert("Donor name and units are required");
+      toast.warning("Donor name and units are required");
       return;
     }
     try {
@@ -66,7 +73,7 @@ function BloodBank() {
       await fetchDonations();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save donation");
+      toast.error(err.message || "Failed to save donation");
     }
   };
 
@@ -82,7 +89,7 @@ function BloodBank() {
       await apiDelete(`/blood-bank/${id}`);
       await fetchDonations();
     } catch (err) {
-      alert(err.message || "Failed to delete donation");
+      toast.error(err.message || "Failed to delete donation");
     }
   };
 
@@ -141,19 +148,31 @@ function BloodBank() {
 
       <Modal isOpen={isModalOpen} title={editId ? "Update Donation" : "Add Donation"} onClose={closeModal}>
         <form className="modal-form" onSubmit={saveDonation}>
-          <input className="form-control" name="donor" placeholder="Donor Name" value={donation.donor} onChange={handleChange} />
-          <select className="form-control" name="bloodGroup" value={donation.bloodGroup} onChange={handleChange}>
-            <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
-            <option>O+</option><option>O-</option><option>AB+</option><option>AB-</option>
-          </select>
-          <input className="form-control" type="number" name="units" placeholder="Units (ml)" value={donation.units} onChange={handleChange} />
-          <input className="form-control" type="date" name="date" value={donation.date} onChange={handleChange} />
-          <input className="form-control" name="contact" placeholder="Contact Number" value={donation.contact} onChange={handleChange} />
-          <select className="form-control" name="status" value={donation.status} onChange={handleChange}>
-            <option>Available</option>
-            <option>Used</option>
-            <option>Expired</option>
-          </select>
+          <FormField label="Donor Name">
+            <input className="form-control" name="donor" placeholder="Enter donor name" value={donation.donor} onChange={handleChange} />
+          </FormField>
+          <FormField label="Blood Group">
+            <select className="form-control" name="bloodGroup" value={donation.bloodGroup} onChange={handleChange}>
+              <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+              <option>O+</option><option>O-</option><option>AB+</option><option>AB-</option>
+            </select>
+          </FormField>
+          <FormField label="Units (ml)">
+            <input className="form-control" name="units" placeholder="Enter units" value={donation.units} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <FormField label="Donation Date">
+            <input className="form-control" type="date" name="date" value={donation.date} onChange={handleChange} />
+          </FormField>
+          <FormField label="Contact Number">
+            <input className="form-control" name="contact" placeholder="Enter contact number" value={donation.contact} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <FormField label="Status">
+            <select className="form-control" name="status" value={donation.status} onChange={handleChange}>
+              <option>Available</option>
+              <option>Used</option>
+              <option>Expired</option>
+            </select>
+          </FormField>
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Donation" : "Add Donation"}</button>
         </form>
       </Modal>

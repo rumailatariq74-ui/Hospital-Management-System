@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
+import { digitsOnly, numericInputProps } from "../../utils/inputValidation";
 
 const initialDoctor = {
   name: "",
@@ -29,16 +32,21 @@ function Doctor() {
       const data = await apiGet("/doctors");
       setDoctors(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load doctors");
+      toast.error(err.message || "Failed to load doctors");
     } finally {
       setLoading(false);
     }
   };
 
   const handleChange = (event) => {
+    const numericFields = ["phone", "experience"];
+    const value = numericFields.includes(event.target.name)
+      ? digitsOnly(event.target.value)
+      : event.target.value;
+
     setDoctor({
       ...doctor,
-      [event.target.name]: event.target.value,
+      [event.target.name]: value,
     });
   };
 
@@ -66,7 +74,7 @@ function Doctor() {
       await fetchDoctors();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save doctor");
+      toast.error(err.message || "Failed to save doctor");
     }
   };
 
@@ -82,7 +90,7 @@ function Doctor() {
       await apiDelete(`/doctors/${id}`);
       await fetchDoctors();
     } catch (err) {
-      alert(err.message || "Failed to delete doctor");
+      toast.error(err.message || "Failed to delete doctor");
     }
   };
 
@@ -171,10 +179,18 @@ function Doctor() {
         onClose={closeModal}
       >
         <form className="modal-form" onSubmit={saveDoctor}>
-          <input className="form-control" name="name" placeholder="Doctor Name" value={doctor.name} onChange={handleChange} />
-          <input className="form-control" name="specialization" placeholder="Specialization" value={doctor.specialization} onChange={handleChange} />
-          <input className="form-control" name="phone" placeholder="Phone Number" value={doctor.phone} onChange={handleChange} />
-          <input className="form-control" name="experience" placeholder="Experience" value={doctor.experience} onChange={handleChange} />
+          <FormField label="Doctor Name">
+            <input className="form-control" name="name" placeholder="Enter doctor name" value={doctor.name} onChange={handleChange} />
+          </FormField>
+          <FormField label="Specialization">
+            <input className="form-control" name="specialization" placeholder="Enter specialization" value={doctor.specialization} onChange={handleChange} />
+          </FormField>
+          <FormField label="Phone Number">
+            <input className="form-control" name="phone" placeholder="Enter phone number" value={doctor.phone} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <FormField label="Experience">
+            <input className="form-control" name="experience" placeholder="Years of experience" value={doctor.experience} onChange={handleChange} {...numericInputProps} />
+          </FormField>
 
           <button className="btn btn-primary modal-submit-btn" type="submit">
             {editId ? "Update Doctor" : "Add Doctor"}

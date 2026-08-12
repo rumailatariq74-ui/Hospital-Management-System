@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Save, Trash2 } from "lucide-react";
 import { apiGet, apiPost, apiPut } from "../../services/api";
+import { toast } from "react-toastify";
+import { digitsOnly, numericInputProps } from "../../utils/inputValidation";
 
 const defaultSettings = {
   hospitalName: "MediCare Hospital",
@@ -37,14 +39,14 @@ function Settings() {
         setSettingsId(settings._id);
         setHospitalName(settings.hospitalName ?? defaultSettings.hospitalName);
         setAddress(settings.address ?? defaultSettings.address);
-        setPhone(settings.phone ?? defaultSettings.phone);
+        setPhone(digitsOnly(settings.phone ?? defaultSettings.phone));
         setEmail(settings.email ?? defaultSettings.email);
         setCurrency(settings.currency ?? defaultSettings.currency);
         setTheme(settings.theme ?? defaultSettings.theme);
         setNotifications(settings.notifications !== false);
       }
     } catch (err) {
-      alert(err.message || "Failed to load settings");
+      toast.error(err.message || "Failed to load settings");
     } finally {
       setLoading(false);
     }
@@ -65,7 +67,7 @@ function Settings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      alert(err.message || "Failed to save settings");
+      toast.error(err.message || "Failed to save settings");
     } finally {
       setLoading(false);
     }
@@ -75,7 +77,7 @@ function Settings() {
     if (window.confirm("WARNING: This will delete ALL local records in your browser. This action cannot be undone. Are you sure?")) {
       const keys = ["patients", "doctors", "appointments", "bills", "medicines", "rooms", "labTests", "staff", "bloodBank", "ambulances"];
       keys.forEach(k => localStorage.removeItem(k));
-      alert("All local data has been cleared.");
+      toast.success("All local data has been cleared.");
     }
   };
 
@@ -103,7 +105,7 @@ function Settings() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Phone</label>
-                <input className="form-control" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone Number" />
+                <input className="form-control" value={phone} onChange={(e) => setPhone(digitsOnly(e.target.value))} placeholder="Phone Number" {...numericInputProps} />
               </div>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Email</label>

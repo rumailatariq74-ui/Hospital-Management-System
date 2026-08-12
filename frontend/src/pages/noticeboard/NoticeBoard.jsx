@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2, Megaphone, Pin, Bell } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
 
 const initialNotice = {
   title: "",
@@ -31,7 +33,7 @@ function NoticeBoard() {
       const data = await apiGet("/notices");
       setNotices(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load notices");
+      toast.error(err.message || "Failed to load notices");
     } finally {
       setLoading(false);
     }
@@ -57,7 +59,7 @@ function NoticeBoard() {
   const saveNotice = async (e) => {
     e.preventDefault();
     if (!notice.title || !notice.message) {
-      alert("Title and message are required");
+      toast.warning("Title and message are required");
       return;
     }
     try {
@@ -69,7 +71,7 @@ function NoticeBoard() {
       await fetchNotices();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save notice");
+      toast.error(err.message || "Failed to save notice");
     }
   };
 
@@ -85,7 +87,7 @@ function NoticeBoard() {
       await apiDelete(`/notices/${id}`);
       await fetchNotices();
     } catch (err) {
-      alert(err.message || "Failed to delete notice");
+      toast.error(err.message || "Failed to delete notice");
     }
   };
 
@@ -96,7 +98,7 @@ function NoticeBoard() {
       await apiPut(`/notices/${id}`, { ...item, pinned: !item.pinned });
       await fetchNotices();
     } catch (err) {
-      alert(err.message || "Failed to update notice");
+      toast.error(err.message || "Failed to update notice");
     }
   };
 
@@ -180,21 +182,31 @@ function NoticeBoard() {
 
       <Modal isOpen={isModalOpen} title={editId ? "Update Notice" : "Post Notice"} onClose={closeModal}>
         <form className="modal-form" onSubmit={saveNotice}>
-          <input className="form-control" name="title" placeholder="Notice Title" value={notice.title} onChange={handleChange} />
-          <textarea className="form-control" name="message" placeholder="Message / Details" value={notice.message} onChange={handleChange} rows={4} style={{ resize: 'vertical', minHeight: 80 }} />
-          <select className="form-control" name="category" value={notice.category} onChange={handleChange}>
-            <option>General</option>
-            <option>Staff</option>
-            <option>Patients</option>
-            <option>Emergency</option>
-            <option>Event</option>
-            <option>Holiday</option>
-          </select>
-          <select className="form-control" name="priority" value={notice.priority} onChange={handleChange}>
-            <option>Normal</option>
-            <option>High</option>
-          </select>
-          <input className="form-control" type="date" name="date" value={notice.date} onChange={handleChange} />
+          <FormField label="Notice Title">
+            <input className="form-control" name="title" placeholder="Enter notice title" value={notice.title} onChange={handleChange} />
+          </FormField>
+          <FormField label="Message / Details">
+            <textarea className="form-control" name="message" placeholder="Enter message details" value={notice.message} onChange={handleChange} rows={4} style={{ resize: 'vertical', minHeight: 80 }} />
+          </FormField>
+          <FormField label="Category">
+            <select className="form-control" name="category" value={notice.category} onChange={handleChange}>
+              <option>General</option>
+              <option>Staff</option>
+              <option>Patients</option>
+              <option>Emergency</option>
+              <option>Event</option>
+              <option>Holiday</option>
+            </select>
+          </FormField>
+          <FormField label="Priority">
+            <select className="form-control" name="priority" value={notice.priority} onChange={handleChange}>
+              <option>Normal</option>
+              <option>High</option>
+            </select>
+          </FormField>
+          <FormField label="Date">
+            <input className="form-control" type="date" name="date" value={notice.date} onChange={handleChange} />
+          </FormField>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
             <input type="checkbox" id="pinned" name="pinned" checked={notice.pinned} onChange={handleChange} style={{ width: 18, height: 18, accentColor: 'var(--color-primary)', cursor: 'pointer' }} />
             <label htmlFor="pinned" style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text)', cursor: 'pointer' }}>Pin this notice to top</label>

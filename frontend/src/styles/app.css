@@ -264,6 +264,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .modal-submit-btn { margin-top: 6px; width: 100%; padding: 12px; font-size: 14px; }
 
 /* FORM CONTROLS */
+.form-field { display: flex; flex-direction: column; gap: 7px; position: relative; }
+.form-label { font-size: 12px; font-weight: 700; color: var(--color-primary-dark); letter-spacing: 0.2px; }
+.searchable-dropdown { position: relative; }
+.searchable-dropdown-trigger { display: flex; align-items: center; justify-content: space-between; text-align: left; cursor: pointer; }
+.dropdown-placeholder { color: var(--color-text-light); }
+.searchable-dropdown-menu { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30; padding: 8px; border: 1.5px solid var(--color-border); border-radius: 12px; background: var(--color-white); box-shadow: var(--shadow-lg); }
+.searchable-dropdown-search { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); color: var(--color-text-muted); }
+.searchable-dropdown-search input { width: 100%; border: none; outline: none; background: transparent; color: var(--color-text); font-size: 13px; }
+.searchable-dropdown-options { max-height: 190px; overflow-y: auto; margin-top: 8px; display: grid; gap: 4px; }
+.searchable-dropdown-option { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 9px 10px; border: none; border-radius: 9px; background: transparent; color: var(--color-text); text-align: left; cursor: pointer; }
+.searchable-dropdown-option:hover { background: rgba(20, 117, 112, 0.08); color: var(--color-primary-dark); }
+.searchable-dropdown-empty { padding: 10px; color: var(--color-text-muted); font-size: 13px; text-align: center; }
 .form-control { width: 100%; padding: 12px 16px; border: 1.5px solid var(--color-border); border-radius: 12px; background: var(--color-bg); font-size: 14px; color: var(--color-text); outline: none; transition: var(--transition-fast); }
 .form-control::placeholder { color: var(--color-text-light); }
 .form-control:focus { border-color: var(--color-primary); background: var(--color-white); box-shadow: 0 0 0 4px rgba(20, 117, 112, 0.08); }

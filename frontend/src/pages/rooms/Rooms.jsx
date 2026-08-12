@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
+import { digitsOnly, numericInputProps } from "../../utils/inputValidation";
 
 const initialRoom = {
   roomNo: "",
@@ -31,13 +34,17 @@ function Rooms() {
       const data = await apiGet("/rooms");
       setRooms(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load rooms");
+      toast.error(err.message || "Failed to load rooms");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => setRoom({ ...room, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const numericFields = ["roomNo", "beds", "occupied", "floor"];
+    const value = numericFields.includes(e.target.name) ? digitsOnly(e.target.value) : e.target.value;
+    setRoom({ ...room, [e.target.name]: value });
+  };
 
   const openAddModal = () => {
     setRoom(initialRoom);
@@ -54,7 +61,7 @@ function Rooms() {
   const saveRoom = async (e) => {
     e.preventDefault();
     if (!room.roomNo || !room.beds) {
-      alert("Room Number and Beds are required");
+      toast.warning("Room Number and Beds are required");
       return;
     }
     try {
@@ -66,7 +73,7 @@ function Rooms() {
       await fetchRooms();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save room");
+      toast.error(err.message || "Failed to save room");
     }
   };
 
@@ -82,7 +89,7 @@ function Rooms() {
       await apiDelete(`/rooms/${id}`);
       await fetchRooms();
     } catch (err) {
-      alert(err.message || "Failed to delete room");
+      toast.error(err.message || "Failed to delete room");
     }
   };
 
@@ -142,22 +149,34 @@ function Rooms() {
 
       <Modal isOpen={isModalOpen} title={editId ? "Update Room" : "Add Room"} onClose={closeModal}>
         <form className="modal-form" onSubmit={saveRoom}>
-          <input className="form-control" name="roomNo" placeholder="Room Number" value={room.roomNo} onChange={handleChange} />
-          <select className="form-control" name="type" value={room.type} onChange={handleChange}>
-            <option>General</option>
-            <option>Private</option>
-            <option>ICU</option>
-            <option>Operation Theater</option>
-            <option>Emergency</option>
-          </select>
-          <input className="form-control" type="number" name="beds" placeholder="Total Beds" value={room.beds} onChange={handleChange} />
-          <input className="form-control" type="number" name="occupied" placeholder="Occupied Beds" value={room.occupied} onChange={handleChange} />
-          <input className="form-control" name="floor" placeholder="Floor" value={room.floor} onChange={handleChange} />
-          <select className="form-control" name="status" value={room.status} onChange={handleChange}>
-            <option>Available</option>
-            <option>Full</option>
-            <option>Maintenance</option>
-          </select>
+          <FormField label="Room Number">
+            <input className="form-control" name="roomNo" placeholder="Enter room number" value={room.roomNo} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <FormField label="Room Type">
+            <select className="form-control" name="type" value={room.type} onChange={handleChange}>
+              <option>General</option>
+              <option>Private</option>
+              <option>ICU</option>
+              <option>Operation Theater</option>
+              <option>Emergency</option>
+            </select>
+          </FormField>
+          <FormField label="Total Beds">
+            <input className="form-control" name="beds" placeholder="Enter total beds" value={room.beds} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <FormField label="Occupied Beds">
+            <input className="form-control" name="occupied" placeholder="Enter occupied beds" value={room.occupied} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <FormField label="Floor">
+            <input className="form-control" name="floor" placeholder="Enter floor" value={room.floor} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <FormField label="Status">
+            <select className="form-control" name="status" value={room.status} onChange={handleChange}>
+              <option>Available</option>
+              <option>Full</option>
+              <option>Maintenance</option>
+            </select>
+          </FormField>
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Room" : "Add Room"}</button>
         </form>
       </Modal>

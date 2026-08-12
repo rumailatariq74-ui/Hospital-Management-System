@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2, Scissors, Clock, AlertCircle } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
+import SearchableDropdown from "../../components/SearchableDropdown";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
+import { digitsOnly, numericInputProps } from "../../utils/inputValidation";
 
 const initialSurgery = {
   patient: "",
@@ -24,10 +28,23 @@ function Surgery() {
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors] = useState([]);
 
   useEffect(() => {
     fetchSurgeries();
+    fetchFormOptions();
   }, []);
+
+  const fetchFormOptions = async () => {
+    try {
+      const [patientData, doctorData] = await Promise.all([apiGet("/patients"), apiGet("/doctors")]);
+      setPatients(patientData || []);
+      setDoctors(doctorData || []);
+    } catch (err) {
+      toast.error(err.message || "Failed to load patient and doctor options");
+    }
+  };
 
   const fetchSurgeries = async () => {
     try {
@@ -35,13 +52,16 @@ function Surgery() {
       const data = await apiGet("/surgeries");
       setSurgeries(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load surgeries");
+      toast.error(err.message || "Failed to load surgeries");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => setSurgery({ ...surgery, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const value = e.target.name === "room" ? digitsOnly(e.target.value) : e.target.value;
+    setSurgery({ ...surgery, [e.target.name]: value });
+  };
 
   const openAddModal = () => {
     setSurgery(initialSurgery);
@@ -58,7 +78,7 @@ function Surgery() {
   const saveSurgery = async (e) => {
     e.preventDefault();
     if (!surgery.patient || !surgery.surgeon || !surgery.type) {
-      alert("Patient, Surgeon, and Surgery Type are required");
+      toast.warning("Patient, Surgeon, and Surgery Type are required");
       return;
     }
     try {
@@ -70,7 +90,7 @@ function Surgery() {
       await fetchSurgeries();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save surgery");
+      toast.error(err.message || "Failed to save surgery");
     }
   };
 
@@ -86,7 +106,7 @@ function Surgery() {
       await apiDelete(`/surgeries/${id}`);
       await fetchSurgeries();
     } catch (err) {
-      alert(err.message || "Failed to delete surgery");
+      toast.error(err.message || "Failed to delete surgery");
     }
   };
 
@@ -101,6 +121,8 @@ function Surgery() {
   const scheduled = surgeries.filter((s) => s.status === "Scheduled").length;
   const completed = surgeries.filter((s) => s.status === "Completed").length;
   const urgent = surgeries.filter((s) => s.priority === "Urgent").length;
+  const patientOptions = patients.map((patient) => patient.name).filter(Boolean);
+  const doctorOptions = doctors.map((doctor) => doctor.name).filter(Boolean);
 
   const columns = [
     { key: "patient", header: "Patient", render: (item) => <strong className="record-name">{item.patient || "-"}</strong> },
@@ -166,25 +188,41 @@ function Surgery() {
 
       <Modal isOpen={isModalOpen} title={editId ? "Update Surgery" : "Schedule Surgery"} onClose={closeModal}>
         <form className="modal-form" onSubmit={saveSurgery}>
-          <input className="form-control" name="patient" placeholder="Patient Name" value={surgery.patient} onChange={handleChange} />
-          <input className="form-control" name="surgeon" placeholder="Surgeon Name" value={surgery.surgeon} onChange={handleChange} />
-          <input className="form-control" name="type" placeholder="Surgery Type (e.g. Appendectomy, C-Section)" value={surgery.type} onChange={handleChange} />
-          <input className="form-control" name="room" placeholder="OT Room Number" value={surgery.room} onChange={handleChange} />
-          <input className="form-control" type="date" name="date" value={surgery.date} onChange={handleChange} />
-          <input className="form-control" type="time" name="time" value={surgery.time} onChange={handleChange} />
-          <input className="form-control" name="duration" placeholder="Estimated Duration (e.g. 2 hours)" value={surgery.duration} onChange={handleChange} />
-          <select className="form-control" name="priority" value={surgery.priority} onChange={handleChange}>
-            <option>Normal</option>
-            <option>High</option>
-            <option>Urgent</option>
-          </select>
-          <select className="form-control" name="status" value={surgery.status} onChange={handleChange}>
-            <option>Scheduled</option>
-            <option>In Progress</option>
-            <option>Completed</option>
-            <option>Cancelled</option>
-          </select>
-          <input className="form-control" name="notes" placeholder="Pre-op Notes / Instructions" value={surgery.notes} onChange={handleChange} />
+          <SearchableDropdown label="Patient" value={surgery.patient} options={patientOptions} placeholder="Select patient" onChange={(value) => setSurgery({ ...surgery, patient: value })} />
+          <SearchableDropdown label="Surgeon" value={surgery.surgeon} options={doctorOptions} placeholder="Select surgeon" onChange={(value) => setSurgery({ ...surgery, surgeon: value })} />
+          <FormField label="Surgery Type">
+            <input className="form-control" name="type" placeholder="e.g. Appendectomy, C-Section" value={surgery.type} onChange={handleChange} />
+          </FormField>
+          <FormField label="OT Room Number">
+            <input className="form-control" name="room" placeholder="Enter OT room number" value={surgery.room} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <FormField label="Date">
+            <input className="form-control" type="date" name="date" value={surgery.date} onChange={handleChange} />
+          </FormField>
+          <FormField label="Time">
+            <input className="form-control" type="time" name="time" value={surgery.time} onChange={handleChange} />
+          </FormField>
+          <FormField label="Estimated Duration">
+            <input className="form-control" name="duration" placeholder="e.g. 2 hours" value={surgery.duration} onChange={handleChange} />
+          </FormField>
+          <FormField label="Priority">
+            <select className="form-control" name="priority" value={surgery.priority} onChange={handleChange}>
+              <option>Normal</option>
+              <option>High</option>
+              <option>Urgent</option>
+            </select>
+          </FormField>
+          <FormField label="Status">
+            <select className="form-control" name="status" value={surgery.status} onChange={handleChange}>
+              <option>Scheduled</option>
+              <option>In Progress</option>
+              <option>Completed</option>
+              <option>Cancelled</option>
+            </select>
+          </FormField>
+          <FormField label="Notes">
+            <input className="form-control" name="notes" placeholder="Pre-op notes / instructions" value={surgery.notes} onChange={handleChange} />
+          </FormField>
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Surgery" : "Schedule Surgery"}</button>
         </form>
       </Modal>

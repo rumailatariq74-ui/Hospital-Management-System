@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
+import SearchableDropdown from "../../components/SearchableDropdown";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
 
 const initialRx = {
   patient: "",
@@ -21,10 +24,23 @@ function Prescriptions() {
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors] = useState([]);
 
   useEffect(() => {
     fetchPrescriptions();
+    fetchFormOptions();
   }, []);
+
+  const fetchFormOptions = async () => {
+    try {
+      const [patientData, doctorData] = await Promise.all([apiGet("/patients"), apiGet("/doctors")]);
+      setPatients(patientData || []);
+      setDoctors(doctorData || []);
+    } catch (err) {
+      toast.error(err.message || "Failed to load patient and doctor options");
+    }
+  };
 
   const fetchPrescriptions = async () => {
     try {
@@ -32,7 +48,7 @@ function Prescriptions() {
       const data = await apiGet("/prescriptions");
       setRxList(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load prescriptions");
+      toast.error(err.message || "Failed to load prescriptions");
     } finally {
       setLoading(false);
     }
@@ -55,7 +71,7 @@ function Prescriptions() {
   const saveRx = async (e) => {
     e.preventDefault();
     if (!rx.patient || !rx.medicines) {
-      alert("Patient and medicines are required");
+      toast.warning("Patient and medicines are required");
       return;
     }
     try {
@@ -67,7 +83,7 @@ function Prescriptions() {
       await fetchPrescriptions();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save prescription");
+      toast.error(err.message || "Failed to save prescription");
     }
   };
 
@@ -83,7 +99,7 @@ function Prescriptions() {
       await apiDelete(`/prescriptions/${id}`);
       await fetchPrescriptions();
     } catch (err) {
-      alert(err.message || "Failed to delete prescription");
+      toast.error(err.message || "Failed to delete prescription");
     }
   };
 
@@ -98,6 +114,8 @@ function Prescriptions() {
     const now = new Date();
     return d.toDateString() === now.toDateString();
   }).length;
+  const patientOptions = patients.map((patient) => patient.name).filter(Boolean);
+  const doctorOptions = doctors.map((doctor) => doctor.name).filter(Boolean);
 
   const columns = [
     { key: "patient", header: "Patient", render: (item) => <strong className="record-name">{item.patient || "-"}</strong> },
@@ -146,13 +164,23 @@ function Prescriptions() {
 
       <Modal isOpen={isModalOpen} title={editId ? "Update Prescription" : "Write Prescription"} onClose={closeModal}>
         <form className="modal-form" onSubmit={saveRx}>
-          <input className="form-control" name="patient" placeholder="Patient Name" value={rx.patient} onChange={handleChange} />
-          <input className="form-control" name="doctor" placeholder="Doctor Name" value={rx.doctor} onChange={handleChange} />
-          <input className="form-control" name="medicines" placeholder="Medicines (e.g. Paracetamol, Amoxicillin)" value={rx.medicines} onChange={handleChange} />
-          <input className="form-control" name="dosage" placeholder="Dosage (e.g. 1 tablet 3x daily)" value={rx.dosage} onChange={handleChange} />
-          <input className="form-control" name="duration" placeholder="Duration (e.g. 7 days)" value={rx.duration} onChange={handleChange} />
-          <input className="form-control" type="date" name="date" value={rx.date} onChange={handleChange} />
-          <input className="form-control" name="notes" placeholder="Additional Notes" value={rx.notes} onChange={handleChange} />
+          <SearchableDropdown label="Patient" value={rx.patient} options={patientOptions} placeholder="Select patient" onChange={(value) => setRx({ ...rx, patient: value })} />
+          <SearchableDropdown label="Doctor" value={rx.doctor} options={doctorOptions} placeholder="Select doctor" onChange={(value) => setRx({ ...rx, doctor: value })} />
+          <FormField label="Medicines">
+            <input className="form-control" name="medicines" placeholder="e.g. Paracetamol, Amoxicillin" value={rx.medicines} onChange={handleChange} />
+          </FormField>
+          <FormField label="Dosage">
+            <input className="form-control" name="dosage" placeholder="e.g. 1 tablet 3x daily" value={rx.dosage} onChange={handleChange} />
+          </FormField>
+          <FormField label="Duration">
+            <input className="form-control" name="duration" placeholder="e.g. 7 days" value={rx.duration} onChange={handleChange} />
+          </FormField>
+          <FormField label="Date">
+            <input className="form-control" type="date" name="date" value={rx.date} onChange={handleChange} />
+          </FormField>
+          <FormField label="Notes">
+            <input className="form-control" name="notes" placeholder="Additional notes" value={rx.notes} onChange={handleChange} />
+          </FormField>
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Prescription" : "Save Prescription"}</button>
         </form>
       </Modal>

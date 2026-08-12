@@ -3,7 +3,10 @@ import { Pencil, Plus, Trash2, LayoutList, CalendarDays } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import CalendarView from "../../components/CalendarView";
+import FormField from "../../components/FormField";
+import SearchableDropdown from "../../components/SearchableDropdown";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
 
 const initialAppointment = {
   patient: "",
@@ -21,10 +24,23 @@ function Appointments() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState("list");
   const [loading, setLoading] = useState(false);
+  const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors] = useState([]);
 
   useEffect(() => {
     fetchAppointments();
+    fetchFormOptions();
   }, []);
+
+  const fetchFormOptions = async () => {
+    try {
+      const [patientData, doctorData] = await Promise.all([apiGet("/patients"), apiGet("/doctors")]);
+      setPatients(patientData || []);
+      setDoctors(doctorData || []);
+    } catch (err) {
+      toast.error(err.message || "Failed to load patient and doctor options");
+    }
+  };
 
   const fetchAppointments = async () => {
     try {
@@ -32,7 +48,7 @@ function Appointments() {
       const data = await apiGet("/appointments");
       setAppointments(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load appointments");
+      toast.error(err.message || "Failed to load appointments");
     } finally {
       setLoading(false);
     }
@@ -69,7 +85,7 @@ function Appointments() {
       await fetchAppointments();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save appointment");
+      toast.error(err.message || "Failed to save appointment");
     }
   };
 
@@ -85,13 +101,15 @@ function Appointments() {
       await apiDelete(`/appointments/${id}`);
       await fetchAppointments();
     } catch (err) {
-      alert(err.message || "Failed to delete appointment");
+      toast.error(err.message || "Failed to delete appointment");
     }
   };
 
   const filteredAppointments = appointments.filter((item) =>
     item.patient.toLowerCase().includes(search.toLowerCase())
   );
+  const patientOptions = patients.map((patient) => patient.name).filter(Boolean);
+  const doctorOptions = doctors.map((doctor) => doctor.name).filter(Boolean);
 
   const columns = [
     {
@@ -194,15 +212,21 @@ function Appointments() {
         onClose={closeModal}
       >
         <form className="modal-form" onSubmit={saveAppointment}>
-          <input className="form-control" name="patient" placeholder="Patient Name" value={appointment.patient} onChange={handleChange} />
-          <input className="form-control" name="doctor" placeholder="Doctor Name" value={appointment.doctor} onChange={handleChange} />
-          <input className="form-control" type="date" name="date" value={appointment.date} onChange={handleChange} />
-          <input className="form-control" type="time" name="time" value={appointment.time} onChange={handleChange} />
-          <select className="form-control" name="status" value={appointment.status} onChange={handleChange}>
-            <option>Pending</option>
-            <option>Confirmed</option>
-            <option>Completed</option>
-          </select>
+          <SearchableDropdown label="Patient" value={appointment.patient} options={patientOptions} placeholder="Select patient" onChange={(value) => setAppointment({ ...appointment, patient: value })} />
+          <SearchableDropdown label="Doctor" value={appointment.doctor} options={doctorOptions} placeholder="Select doctor" onChange={(value) => setAppointment({ ...appointment, doctor: value })} />
+          <FormField label="Date">
+            <input className="form-control" type="date" name="date" value={appointment.date} onChange={handleChange} />
+          </FormField>
+          <FormField label="Time">
+            <input className="form-control" type="time" name="time" value={appointment.time} onChange={handleChange} />
+          </FormField>
+          <FormField label="Status">
+            <select className="form-control" name="status" value={appointment.status} onChange={handleChange}>
+              <option>Pending</option>
+              <option>Confirmed</option>
+              <option>Completed</option>
+            </select>
+          </FormField>
 
           <button className="btn btn-primary modal-submit-btn" type="submit">
             {editId ? "Update Appointment" : "Add Appointment"}

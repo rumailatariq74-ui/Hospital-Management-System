@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
+import SearchableDropdown from "../../components/SearchableDropdown";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
+import { decimalInputProps, decimalOnly } from "../../utils/inputValidation";
 
 const initialBill = {
   patient: "",
@@ -21,10 +25,23 @@ function Billing() {
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors] = useState([]);
 
   useEffect(() => {
     fetchBills();
+    fetchFormOptions();
   }, []);
+
+  const fetchFormOptions = async () => {
+    try {
+      const [patientData, doctorData] = await Promise.all([apiGet("/patients"), apiGet("/doctors")]);
+      setPatients(patientData || []);
+      setDoctors(doctorData || []);
+    } catch (err) {
+      toast.error(err.message || "Failed to load patient and doctor options");
+    }
+  };
 
   const fetchBills = async () => {
     try {
@@ -32,16 +49,20 @@ function Billing() {
       const data = await apiGet("/bills");
       setBills(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load bills");
+      toast.error(err.message || "Failed to load bills");
     } finally {
       setLoading(false);
     }
   };
 
   const handleChange = (event) => {
+    const value = event.target.name === "amount"
+      ? decimalOnly(event.target.value)
+      : event.target.value;
+
     setBill({
       ...bill,
-      [event.target.name]: event.target.value,
+      [event.target.name]: value,
     });
   };
 
@@ -61,7 +82,7 @@ function Billing() {
     event.preventDefault();
 
     if (!bill.patient || !bill.amount) {
-      alert("Patient and Amount required");
+      toast.warning("Patient and Amount required");
       return;
     }
 
@@ -74,7 +95,7 @@ function Billing() {
       await fetchBills();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save bill");
+      toast.error(err.message || "Failed to save bill");
     }
   };
 
@@ -90,7 +111,7 @@ function Billing() {
       await apiDelete(`/bills/${id}`);
       await fetchBills();
     } catch (err) {
-      alert(err.message || "Failed to delete bill");
+      toast.error(err.message || "Failed to delete bill");
     }
   };
 
@@ -99,6 +120,8 @@ function Billing() {
   );
 
   const revenue = bills.reduce((sum, item) => sum + Number(item.amount), 0);
+  const patientOptions = patients.map((patient) => patient.name).filter(Boolean);
+  const doctorOptions = doctors.map((doctor) => doctor.name).filter(Boolean);
 
   const columns = [
     {
@@ -203,21 +226,31 @@ function Billing() {
         onClose={closeModal}
       >
         <form className="modal-form" onSubmit={saveBill}>
-          <input className="form-control" name="patient" placeholder="Patient Name" value={bill.patient} onChange={handleChange} />
-          <input className="form-control" name="doctor" placeholder="Doctor Name" value={bill.doctor} onChange={handleChange} />
-          <input className="form-control" name="treatment" placeholder="Treatment" value={bill.treatment} onChange={handleChange} />
-          <input className="form-control" type="number" name="amount" placeholder="Amount" value={bill.amount} onChange={handleChange} />
-          <select className="form-control" name="paymentMethod" value={bill.paymentMethod} onChange={handleChange}>
-            <option value="">Payment Method</option>
-            <option>Cash</option>
-            <option>Card</option>
-            <option>Online</option>
-          </select>
-          <select className="form-control" name="status" value={bill.status} onChange={handleChange}>
-            <option>Pending</option>
-            <option>Paid</option>
-          </select>
-          <input className="form-control" type="date" name="date" value={bill.date} onChange={handleChange} />
+          <SearchableDropdown label="Patient" value={bill.patient} options={patientOptions} placeholder="Select patient" onChange={(value) => setBill({ ...bill, patient: value })} />
+          <SearchableDropdown label="Doctor" value={bill.doctor} options={doctorOptions} placeholder="Select doctor" onChange={(value) => setBill({ ...bill, doctor: value })} />
+          <FormField label="Treatment">
+            <input className="form-control" name="treatment" placeholder="Enter treatment" value={bill.treatment} onChange={handleChange} />
+          </FormField>
+          <FormField label="Amount">
+            <input className="form-control" name="amount" placeholder="Enter amount" value={bill.amount} onChange={handleChange} {...decimalInputProps} />
+          </FormField>
+          <FormField label="Payment Method">
+            <select className="form-control" name="paymentMethod" value={bill.paymentMethod} onChange={handleChange}>
+              <option value="">Select payment method</option>
+              <option>Cash</option>
+              <option>Card</option>
+              <option>Online</option>
+            </select>
+          </FormField>
+          <FormField label="Status">
+            <select className="form-control" name="status" value={bill.status} onChange={handleChange}>
+              <option>Pending</option>
+              <option>Paid</option>
+            </select>
+          </FormField>
+          <FormField label="Date">
+            <input className="form-control" type="date" name="date" value={bill.date} onChange={handleChange} />
+          </FormField>
 
           <button className="btn btn-primary modal-submit-btn" type="submit">
             {editId ? "Update Bill" : "Add Bill"}

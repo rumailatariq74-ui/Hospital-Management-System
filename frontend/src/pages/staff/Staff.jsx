@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
+import { decimalInputProps, decimalOnly, digitsOnly, numericInputProps } from "../../utils/inputValidation";
 
 const initialStaff = {
   name: "",
@@ -31,13 +34,21 @@ function Staff() {
       const data = await apiGet("/staff");
       setStaff(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load staff");
+      toast.error(err.message || "Failed to load staff");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => setStaffMember({ ...staffMember, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const value = e.target.name === "phone"
+      ? digitsOnly(e.target.value)
+      : e.target.name === "salary"
+        ? decimalOnly(e.target.value)
+        : e.target.value;
+
+    setStaffMember({ ...staffMember, [e.target.name]: value });
+  };
 
   const openAddModal = () => {
     setStaffMember(initialStaff);
@@ -54,7 +65,7 @@ function Staff() {
   const saveStaff = async (e) => {
     e.preventDefault();
     if (!staffMember.name || !staffMember.role) {
-      alert("Name and Role are required");
+      toast.warning("Name and Role are required");
       return;
     }
     try {
@@ -66,7 +77,7 @@ function Staff() {
       await fetchStaff();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save staff");
+      toast.error(err.message || "Failed to save staff");
     }
   };
 
@@ -82,7 +93,7 @@ function Staff() {
       await apiDelete(`/staff/${id}`);
       await fetchStaff();
     } catch (err) {
-      alert(err.message || "Failed to delete staff");
+      toast.error(err.message || "Failed to delete staff");
     }
   };
 
@@ -139,24 +150,36 @@ function Staff() {
 
       <Modal isOpen={isModalOpen} title={editId ? "Update Staff" : "Add Staff"} onClose={closeModal}>
         <form className="modal-form" onSubmit={saveStaff}>
-          <input className="form-control" name="name" placeholder="Full Name" value={staffMember.name} onChange={handleChange} />
-          <select className="form-control" name="role" value={staffMember.role} onChange={handleChange}>
-            <option>Nurse</option>
-            <option>Receptionist</option>
-            <option>Lab Technician</option>
-            <option>Pharmacist</option>
-            <option>Accountant</option>
-            <option>Security</option>
-            <option>Cleaner</option>
-          </select>
-          <input className="form-control" name="department" placeholder="Department" value={staffMember.department} onChange={handleChange} />
-          <input className="form-control" name="phone" placeholder="Phone Number" value={staffMember.phone} onChange={handleChange} />
-          <select className="form-control" name="shift" value={staffMember.shift} onChange={handleChange}>
-            <option>Morning</option>
-            <option>Evening</option>
-            <option>Night</option>
-          </select>
-          <input className="form-control" type="number" name="salary" placeholder="Monthly Salary (Rs.)" value={staffMember.salary} onChange={handleChange} />
+          <FormField label="Full Name">
+            <input className="form-control" name="name" placeholder="Enter full name" value={staffMember.name} onChange={handleChange} />
+          </FormField>
+          <FormField label="Role">
+            <select className="form-control" name="role" value={staffMember.role} onChange={handleChange}>
+              <option>Nurse</option>
+              <option>Receptionist</option>
+              <option>Lab Technician</option>
+              <option>Pharmacist</option>
+              <option>Accountant</option>
+              <option>Security</option>
+              <option>Cleaner</option>
+            </select>
+          </FormField>
+          <FormField label="Department">
+            <input className="form-control" name="department" placeholder="Enter department" value={staffMember.department} onChange={handleChange} />
+          </FormField>
+          <FormField label="Phone Number">
+            <input className="form-control" name="phone" placeholder="Enter phone number" value={staffMember.phone} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <FormField label="Shift">
+            <select className="form-control" name="shift" value={staffMember.shift} onChange={handleChange}>
+              <option>Morning</option>
+              <option>Evening</option>
+              <option>Night</option>
+            </select>
+          </FormField>
+          <FormField label="Monthly Salary (Rs.)">
+            <input className="form-control" name="salary" placeholder="Enter monthly salary" value={staffMember.salary} onChange={handleChange} {...decimalInputProps} />
+          </FormField>
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Staff" : "Add Staff"}</button>
         </form>
       </Modal>
