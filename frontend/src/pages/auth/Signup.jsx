@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Hospital, Lock, Mail, User, Eye, EyeOff } from "lucide-react";
+import { toast } from "react-toastify";
 
 function Signup() {
   const [form, setForm] = useState({
@@ -20,11 +21,11 @@ function Signup() {
   const handleSubmit = (event) => {
     event.preventDefault();
     if (form.password !== form.confirmPassword) {
-      alert("Passwords do not match");
+      toast.warning("Passwords do not match");
       return;
     }
     if (!agreed) {
-      alert("Please accept the terms and conditions");
+      toast.warning("Please accept the terms and conditions");
       return;
     }
     console.log("Signup submitted:", form);

@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
+import SearchableDropdown from "../../components/SearchableDropdown";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
+import { digitsOnly, numericInputProps } from "../../utils/inputValidation";
 
 const initialPatient = {
   name: "",
@@ -11,6 +15,8 @@ const initialPatient = {
   disease: "",
   phone: "",
 };
+
+const genderOptions = ["Male", "Female", "Other"];
 
 function Patients() {
   const [patient, setPatient] = useState(initialPatient);
@@ -30,16 +36,21 @@ function Patients() {
       const data = await apiGet("/patients");
       setPatients(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load patients");
+      toast.error(err.message || "Failed to load patients");
     } finally {
       setLoading(false);
     }
   };
 
   const handleChange = (event) => {
+    const numericFields = ["age", "phone"];
+    const value = numericFields.includes(event.target.name)
+      ? digitsOnly(event.target.value)
+      : event.target.value;
+
     setPatient({
       ...patient,
-      [event.target.name]: event.target.value,
+      [event.target.name]: value,
     });
   };
 
@@ -67,7 +78,7 @@ function Patients() {
       await fetchPatients();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save patient");
+      toast.error(err.message || "Failed to save patient");
     }
   };
 
@@ -83,7 +94,7 @@ function Patients() {
       await apiDelete(`/patients/${id}`);
       await fetchPatients();
     } catch (err) {
-      alert(err.message || "Failed to delete patient");
+      toast.error(err.message || "Failed to delete patient");
     }
   };
 
@@ -177,11 +188,19 @@ function Patients() {
         onClose={closeModal}
       >
         <form className="modal-form" onSubmit={savePatient}>
-          <input className="form-control" name="name" placeholder="Patient Name" value={patient.name} onChange={handleChange} />
-          <input className="form-control" name="age" placeholder="Age" value={patient.age} onChange={handleChange} />
-          <input className="form-control" name="gender" placeholder="Gender" value={patient.gender} onChange={handleChange} />
-          <input className="form-control" name="disease" placeholder="Disease" value={patient.disease} onChange={handleChange} />
-          <input className="form-control" name="phone" placeholder="Phone" value={patient.phone} onChange={handleChange} />
+          <FormField label="Patient Name">
+            <input className="form-control" name="name" placeholder="Enter patient name" value={patient.name} onChange={handleChange} />
+          </FormField>
+          <FormField label="Age">
+            <input className="form-control" name="age" placeholder="Enter age" value={patient.age} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <SearchableDropdown label="Gender" value={patient.gender} options={genderOptions} placeholder="Select gender" onChange={(value) => setPatient({ ...patient, gender: value })} />
+          <FormField label="Disease">
+            <input className="form-control" name="disease" placeholder="Enter disease or diagnosis" value={patient.disease} onChange={handleChange} />
+          </FormField>
+          <FormField label="Phone">
+            <input className="form-control" name="phone" placeholder="Enter phone number" value={patient.phone} onChange={handleChange} {...numericInputProps} />
+          </FormField>
 
           <button className="btn btn-primary modal-submit-btn" type="submit">
             {editId ? "Update Patient" : "Add Patient"}

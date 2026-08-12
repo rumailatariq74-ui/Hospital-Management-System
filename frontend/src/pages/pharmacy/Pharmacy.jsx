@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
+import { decimalInputProps, decimalOnly, digitsOnly, numericInputProps } from "../../utils/inputValidation";
 
 const initialMedicine = {
   name: "",
@@ -31,13 +34,21 @@ function Pharmacy() {
       const data = await apiGet("/medicines");
       setMedicines(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load medicines");
+      toast.error(err.message || "Failed to load medicines");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => setMedicine({ ...medicine, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const value = e.target.name === "stock"
+      ? digitsOnly(e.target.value)
+      : e.target.name === "price"
+        ? decimalOnly(e.target.value)
+        : e.target.value;
+
+    setMedicine({ ...medicine, [e.target.name]: value });
+  };
 
   const openAddModal = () => {
     setMedicine(initialMedicine);
@@ -54,7 +65,7 @@ function Pharmacy() {
   const saveMedicine = async (e) => {
     e.preventDefault();
     if (!medicine.name || !medicine.stock || !medicine.price) {
-      alert("Name, Stock, and Price are required");
+      toast.warning("Name, Stock, and Price are required");
       return;
     }
     try {
@@ -66,7 +77,7 @@ function Pharmacy() {
       await fetchMedicines();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save medicine");
+      toast.error(err.message || "Failed to save medicine");
     }
   };
 
@@ -82,7 +93,7 @@ function Pharmacy() {
       await apiDelete(`/medicines/${id}`);
       await fetchMedicines();
     } catch (err) {
-      alert(err.message || "Failed to delete medicine");
+      toast.error(err.message || "Failed to delete medicine");
     }
   };
 
@@ -140,12 +151,24 @@ function Pharmacy() {
 
       <Modal isOpen={isModalOpen} title={editId ? "Update Medicine" : "Add Medicine"} onClose={closeModal}>
         <form className="modal-form" onSubmit={saveMedicine}>
-          <input className="form-control" name="name" placeholder="Medicine Name" value={medicine.name} onChange={handleChange} />
-          <input className="form-control" name="category" placeholder="Category (e.g. Tablet, Syrup)" value={medicine.category} onChange={handleChange} />
-          <input className="form-control" type="number" name="stock" placeholder="Stock Quantity" value={medicine.stock} onChange={handleChange} />
-          <input className="form-control" type="number" name="price" placeholder="Unit Price (Rs.)" value={medicine.price} onChange={handleChange} />
-          <input className="form-control" type="date" name="expiry" placeholder="Expiry Date" value={medicine.expiry} onChange={handleChange} />
-          <input className="form-control" name="supplier" placeholder="Supplier Name" value={medicine.supplier} onChange={handleChange} />
+          <FormField label="Medicine Name">
+            <input className="form-control" name="name" placeholder="Enter medicine name" value={medicine.name} onChange={handleChange} />
+          </FormField>
+          <FormField label="Category">
+            <input className="form-control" name="category" placeholder="e.g. Tablet, Syrup" value={medicine.category} onChange={handleChange} />
+          </FormField>
+          <FormField label="Stock Quantity">
+            <input className="form-control" name="stock" placeholder="Enter stock quantity" value={medicine.stock} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <FormField label="Unit Price (Rs.)">
+            <input className="form-control" name="price" placeholder="Enter unit price" value={medicine.price} onChange={handleChange} {...decimalInputProps} />
+          </FormField>
+          <FormField label="Expiry Date">
+            <input className="form-control" type="date" name="expiry" value={medicine.expiry} onChange={handleChange} />
+          </FormField>
+          <FormField label="Supplier Name">
+            <input className="form-control" name="supplier" placeholder="Enter supplier name" value={medicine.supplier} onChange={handleChange} />
+          </FormField>
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Medicine" : "Add Medicine"}</button>
         </form>
       </Modal>

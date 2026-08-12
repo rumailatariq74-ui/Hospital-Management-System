@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2, LogIn, LogOut, UserCheck } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
+import SearchableDropdown from "../../components/SearchableDropdown";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
+import { digitsOnly, numericInputProps } from "../../utils/inputValidation";
 
 const initialVisitor = {
   name: "",
@@ -21,10 +25,21 @@ function Visitors() {
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [patients, setPatients] = useState([]);
 
   useEffect(() => {
     fetchVisitors();
+    fetchPatients();
   }, []);
+
+  const fetchPatients = async () => {
+    try {
+      const data = await apiGet("/patients");
+      setPatients(data || []);
+    } catch (err) {
+      toast.error(err.message || "Failed to load patient options");
+    }
+  };
 
   const fetchVisitors = async () => {
     try {
@@ -32,13 +47,16 @@ function Visitors() {
       const data = await apiGet("/visitors");
       setVisitors(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load visitors");
+      toast.error(err.message || "Failed to load visitors");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => setVisitor({ ...visitor, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const value = e.target.name === "phone" ? digitsOnly(e.target.value) : e.target.value;
+    setVisitor({ ...visitor, [e.target.name]: value });
+  };
 
   const openAddModal = () => {
     setVisitor(initialVisitor);
@@ -55,7 +73,7 @@ function Visitors() {
   const saveVisitor = async (e) => {
     e.preventDefault();
     if (!visitor.name || !visitor.patient) {
-      alert("Visitor name and patient name are required");
+      toast.warning("Visitor name and patient name are required");
       return;
     }
     try {
@@ -67,7 +85,7 @@ function Visitors() {
       await fetchVisitors();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save visitor");
+      toast.error(err.message || "Failed to save visitor");
     }
   };
 
@@ -83,7 +101,7 @@ function Visitors() {
       await apiDelete(`/visitors/${id}`);
       await fetchVisitors();
     } catch (err) {
-      alert(err.message || "Failed to delete visitor");
+      toast.error(err.message || "Failed to delete visitor");
     }
   };
 
@@ -98,6 +116,7 @@ function Visitors() {
     const today = new Date().toISOString().split("T")[0];
     return v.entryTime.startsWith(today);
   }).length;
+  const patientOptions = patients.map((patient) => patient.name).filter(Boolean);
 
   const columns = [
     { key: "name", header: "Visitor", render: (item) => <strong className="record-name">{item.name || "-"}</strong> },
@@ -149,13 +168,25 @@ function Visitors() {
 
       <Modal isOpen={isModalOpen} title={editId ? "Update Visitor" : "Add Visitor"} onClose={closeModal}>
         <form className="modal-form" onSubmit={saveVisitor}>
-          <input className="form-control" name="name" placeholder="Visitor Full Name" value={visitor.name} onChange={handleChange} />
-          <input className="form-control" name="patient" placeholder="Patient Name Being Visited" value={visitor.patient} onChange={handleChange} />
-          <input className="form-control" name="relation" placeholder="Relation to Patient (e.g. Father, Friend)" value={visitor.relation} onChange={handleChange} />
-          <input className="form-control" name="phone" placeholder="Visitor Phone" value={visitor.phone} onChange={handleChange} />
-          <input className="form-control" name="purpose" placeholder="Purpose of Visit" value={visitor.purpose} onChange={handleChange} />
-          <input className="form-control" type="datetime-local" name="entryTime" placeholder="Entry Time" value={visitor.entryTime} onChange={handleChange} />
-          <input className="form-control" type="datetime-local" name="exitTime" placeholder="Exit Time" value={visitor.exitTime} onChange={handleChange} />
+          <FormField label="Visitor Name">
+            <input className="form-control" name="name" placeholder="Enter visitor full name" value={visitor.name} onChange={handleChange} />
+          </FormField>
+          <SearchableDropdown label="Patient" value={visitor.patient} options={patientOptions} placeholder="Select patient being visited" onChange={(value) => setVisitor({ ...visitor, patient: value })} />
+          <FormField label="Relation">
+            <input className="form-control" name="relation" placeholder="e.g. Father, Friend" value={visitor.relation} onChange={handleChange} />
+          </FormField>
+          <FormField label="Phone">
+            <input className="form-control" name="phone" placeholder="Enter visitor phone" value={visitor.phone} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <FormField label="Purpose">
+            <input className="form-control" name="purpose" placeholder="Purpose of visit" value={visitor.purpose} onChange={handleChange} />
+          </FormField>
+          <FormField label="Entry Time">
+            <input className="form-control" type="datetime-local" name="entryTime" value={visitor.entryTime} onChange={handleChange} />
+          </FormField>
+          <FormField label="Exit Time">
+            <input className="form-control" type="datetime-local" name="exitTime" value={visitor.exitTime} onChange={handleChange} />
+          </FormField>
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Visitor" : "Add Visitor"}</button>
         </form>
       </Modal>

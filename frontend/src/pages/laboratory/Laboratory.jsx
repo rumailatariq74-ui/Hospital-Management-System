@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
+import SearchableDropdown from "../../components/SearchableDropdown";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
 
 const initialTest = {
   patient: "",
@@ -20,10 +23,21 @@ function Laboratory() {
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [patients, setPatients] = useState([]);
 
   useEffect(() => {
     fetchTests();
+    fetchPatients();
   }, []);
+
+  const fetchPatients = async () => {
+    try {
+      const data = await apiGet("/patients");
+      setPatients(data || []);
+    } catch (err) {
+      toast.error(err.message || "Failed to load patient options");
+    }
+  };
 
   const fetchTests = async () => {
     try {
@@ -31,7 +45,7 @@ function Laboratory() {
       const data = await apiGet("/lab-tests");
       setTests(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load lab tests");
+      toast.error(err.message || "Failed to load lab tests");
     } finally {
       setLoading(false);
     }
@@ -54,7 +68,7 @@ function Laboratory() {
   const saveTest = async (e) => {
     e.preventDefault();
     if (!test.patient || !test.testName) {
-      alert("Patient and Test Name are required");
+      toast.warning("Patient and Test Name are required");
       return;
     }
     try {
@@ -66,7 +80,7 @@ function Laboratory() {
       await fetchTests();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save lab test");
+      toast.error(err.message || "Failed to save lab test");
     }
   };
 
@@ -82,7 +96,7 @@ function Laboratory() {
       await apiDelete(`/lab-tests/${id}`);
       await fetchTests();
     } catch (err) {
-      alert(err.message || "Failed to delete lab test");
+      toast.error(err.message || "Failed to delete lab test");
     }
   };
 
@@ -93,6 +107,7 @@ function Laboratory() {
 
   const pending = tests.filter((t) => t.result === "Pending").length;
   const completed = tests.filter((t) => t.result === "Completed").length;
+  const patientOptions = patients.map((patient) => patient.name).filter(Boolean);
 
   const columns = [
     { key: "patient", header: "Patient", render: (item) => <strong className="record-name">{item.patient || "-"}</strong> },
@@ -141,16 +156,26 @@ function Laboratory() {
 
       <Modal isOpen={isModalOpen} title={editId ? "Update Test" : "Add Lab Test"} onClose={closeModal}>
         <form className="modal-form" onSubmit={saveTest}>
-          <input className="form-control" name="patient" placeholder="Patient Name" value={test.patient} onChange={handleChange} />
-          <input className="form-control" name="testName" placeholder="Test Name (e.g. Blood Test, X-Ray)" value={test.testName} onChange={handleChange} />
-          <input className="form-control" name="doctor" placeholder="Referring Doctor" value={test.doctor} onChange={handleChange} />
-          <input className="form-control" type="date" name="date" value={test.date} onChange={handleChange} />
-          <select className="form-control" name="result" value={test.result} onChange={handleChange}>
-            <option>Pending</option>
-            <option>Completed</option>
-            <option>Critical</option>
-          </select>
-          <input className="form-control" name="notes" placeholder="Notes / Remarks" value={test.notes} onChange={handleChange} />
+          <SearchableDropdown label="Patient" value={test.patient} options={patientOptions} placeholder="Select patient" onChange={(value) => setTest({ ...test, patient: value })} />
+          <FormField label="Test Name">
+            <input className="form-control" name="testName" placeholder="e.g. Blood Test, X-Ray" value={test.testName} onChange={handleChange} />
+          </FormField>
+          <FormField label="Referring Doctor">
+            <input className="form-control" name="doctor" placeholder="Enter referring doctor" value={test.doctor} onChange={handleChange} />
+          </FormField>
+          <FormField label="Date">
+            <input className="form-control" type="date" name="date" value={test.date} onChange={handleChange} />
+          </FormField>
+          <FormField label="Result">
+            <select className="form-control" name="result" value={test.result} onChange={handleChange}>
+              <option>Pending</option>
+              <option>Completed</option>
+              <option>Critical</option>
+            </select>
+          </FormField>
+          <FormField label="Notes">
+            <input className="form-control" name="notes" placeholder="Notes / remarks" value={test.notes} onChange={handleChange} />
+          </FormField>
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Test" : "Add Test"}</button>
         </form>
       </Modal>

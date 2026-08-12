@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import FormField from "../../components/FormField";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../services/api";
+import { toast } from "react-toastify";
+import { digitsOnly, numericInputProps } from "../../utils/inputValidation";
 
 const initialAmbulance = {
   vehicleNo: "",
@@ -31,13 +34,16 @@ function Ambulance() {
       const data = await apiGet("/ambulances");
       setAmbulances(data || []);
     } catch (err) {
-      alert(err.message || "Failed to load ambulances");
+      toast.error(err.message || "Failed to load ambulances");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => setAmbulance({ ...ambulance, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const value = e.target.name === "phone" ? digitsOnly(e.target.value) : e.target.value;
+    setAmbulance({ ...ambulance, [e.target.name]: value });
+  };
 
   const openAddModal = () => {
     setAmbulance(initialAmbulance);
@@ -54,7 +60,7 @@ function Ambulance() {
   const saveAmbulance = async (e) => {
     e.preventDefault();
     if (!ambulance.vehicleNo || !ambulance.driver) {
-      alert("Vehicle number and driver are required");
+      toast.warning("Vehicle number and driver are required");
       return;
     }
     try {
@@ -66,7 +72,7 @@ function Ambulance() {
       await fetchAmbulances();
       closeModal();
     } catch (err) {
-      alert(err.message || "Failed to save ambulance");
+      toast.error(err.message || "Failed to save ambulance");
     }
   };
 
@@ -82,7 +88,7 @@ function Ambulance() {
       await apiDelete(`/ambulances/${id}`);
       await fetchAmbulances();
     } catch (err) {
-      alert(err.message || "Failed to delete ambulance");
+      toast.error(err.message || "Failed to delete ambulance");
     }
   };
 
@@ -141,20 +147,32 @@ function Ambulance() {
 
       <Modal isOpen={isModalOpen} title={editId ? "Update Ambulance" : "Add Ambulance"} onClose={closeModal}>
         <form className="modal-form" onSubmit={saveAmbulance}>
-          <input className="form-control" name="vehicleNo" placeholder="Vehicle Number" value={ambulance.vehicleNo} onChange={handleChange} />
-          <input className="form-control" name="driver" placeholder="Driver Name" value={ambulance.driver} onChange={handleChange} />
-          <input className="form-control" name="phone" placeholder="Driver Phone" value={ambulance.phone} onChange={handleChange} />
-          <select className="form-control" name="type" value={ambulance.type} onChange={handleChange}>
-            <option>Basic</option>
-            <option>Advanced Life Support</option>
-            <option>Mortuary</option>
-          </select>
-          <select className="form-control" name="status" value={ambulance.status} onChange={handleChange}>
-            <option>Available</option>
-            <option>On Duty</option>
-            <option>Maintenance</option>
-          </select>
-          <input className="form-control" type="date" name="lastService" placeholder="Last Service Date" value={ambulance.lastService} onChange={handleChange} />
+          <FormField label="Vehicle Number">
+            <input className="form-control" name="vehicleNo" placeholder="Enter vehicle number" value={ambulance.vehicleNo} onChange={handleChange} />
+          </FormField>
+          <FormField label="Driver Name">
+            <input className="form-control" name="driver" placeholder="Enter driver name" value={ambulance.driver} onChange={handleChange} />
+          </FormField>
+          <FormField label="Driver Phone">
+            <input className="form-control" name="phone" placeholder="Enter driver phone" value={ambulance.phone} onChange={handleChange} {...numericInputProps} />
+          </FormField>
+          <FormField label="Ambulance Type">
+            <select className="form-control" name="type" value={ambulance.type} onChange={handleChange}>
+              <option>Basic</option>
+              <option>Advanced Life Support</option>
+              <option>Mortuary</option>
+            </select>
+          </FormField>
+          <FormField label="Status">
+            <select className="form-control" name="status" value={ambulance.status} onChange={handleChange}>
+              <option>Available</option>
+              <option>On Duty</option>
+              <option>Maintenance</option>
+            </select>
+          </FormField>
+          <FormField label="Last Service Date">
+            <input className="form-control" type="date" name="lastService" value={ambulance.lastService} onChange={handleChange} />
+          </FormField>
           <button className="btn btn-primary modal-submit-btn" type="submit">{editId ? "Update Ambulance" : "Add Ambulance"}</button>
         </form>
       </Modal>
